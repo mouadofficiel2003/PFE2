@@ -98,8 +98,26 @@ Le script lance la gateway et les 5 services dans des fenêtres PowerShell sépa
 copier `application-local.properties.example` → `application-local.properties` dans le
 module concerné (fichier gitignoré).
 
-Le **secret JWT** (`auth.jwt.secret`) doit être **identique dans les 5 services ressource**
-(auth, candidat, concours, lieux, repartition) pour que la validation inter-services fonctionne.
+**Configuration par variables d'environnement** : les valeurs sensibles utilisent la syntaxe
+`${VARIABLE:valeur-par-défaut}`. En développement, les valeurs par défaut suffisent (aucune
+variable à définir). En production, définir ces variables d'environnement pour **surcharger**
+les défauts sans modifier le code :
+
+| Variable | Propriété | Défaut (dev) | Portée |
+|----------|-----------|--------------|--------|
+| `JWT_SECRET` | `auth.jwt.secret` | `pfe-dev-jwt-secret-key-change-me-min-32b!!` | **identique** dans les 5 services ressource |
+| `DB_URL` | `spring.datasource.url` | `jdbc:postgresql://localhost:5432/<base du service>` | par service |
+| `DB_USERNAME` | `spring.datasource.username` | `postgres` | par service |
+| `DB_PASSWORD` | `spring.datasource.password` | `postgres` | par service |
+| `AUTH_SERVICE_URI`, `CANDIDAT_SERVICE_URI`, `CONCOURS_SERVICE_URI`, `LIEUX_SERVICE_URI`, `REPARTITION_SERVICE_URI` | routes de l'API Gateway | ports `8081`–`8085` | api-gateway |
+
+Le **secret JWT** (`auth.jwt.secret` / `JWT_SECRET`) doit être **identique dans les 5 services
+ressource** (auth, candidat, concours, lieux, repartition) pour que la validation inter-services
+fonctionne. Le secret HS256 doit faire **au moins 32 octets UTF-8**.
+
+> Les valeurs par défaut (`postgres` / `postgres`, secret de dev, comptes seedés) ne sont **que
+> pour le développement local** : en production, fournir un secret JWT fort et des identifiants
+> de base de données réels via les variables d'environnement (ou un gestionnaire de secrets).
 
 ### 3. Frontend
 

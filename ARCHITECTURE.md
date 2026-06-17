@@ -107,7 +107,11 @@ Key schema notes:
 - `salle.numero_concours` is an optional logical reference to `concours.numero_concours`.
 - `repartition_run.message` stores failure reasons when a run ends with status `ECHEC`.
 
-Local default credentials: `postgres` / `postgres` on `localhost:5432`.
+Local default credentials: `postgres` / `postgres` on `localhost:5432`. These are **dev-only
+defaults**: each service reads `spring.datasource.url`, `spring.datasource.username` and
+`spring.datasource.password` via `${DB_URL:…}`, `${DB_USERNAME:postgres}` and
+`${DB_PASSWORD:postgres}`, so the defaults are overridden in production by setting the
+`DB_URL` / `DB_USERNAME` / `DB_PASSWORD` environment variables (no code change needed).
 
 Default seeded accounts (change in production): `admin / Admin123!` and
 `gestionnaire / Gest123!`.
@@ -135,7 +139,10 @@ JWT as a `Bearer` token to every request via a request interceptor.
 2. Frontend stores the token (localStorage) and sends it as `Bearer` on every request.
 3. **Each resource service validates the JWT itself** using the same shared secret
    (`auth.jwt.secret`, identical in all five resource services). There is no
-   call back to auth-service to validate tokens.
+   call back to auth-service to validate tokens. The secret is externalized as
+   `${JWT_SECRET:…}`: a dev default is baked in, but production overrides it by setting
+   the `JWT_SECRET` environment variable (the same value must be set on all five resource
+   services; HS256 requires at least 32 UTF-8 bytes).
 4. `GET /auth/me` restores the session on page reload.
 
 Each resource service has its own `JwtAuthenticationFilter` that parses the token,
@@ -206,27 +213,44 @@ Query history later via `GET /api/repartition/runs` and `GET /api/repartition/ru
 
 #### Repartition algorithm
 
-For each candidate (sorted by `numero_inscription`):
+The allocation is **region-aware** (not just nearest-by-distance). It combines two bundled
+gazetteers, both loaded at startup:
 
-1. Match to the **geographically nearest** competition centre to the candidate's city.
-2. Distance is great-circle (Haversine, km) using a bundled gazetteer of Moroccan cities
-   (`classpath:geo/villes-maroc.json`, loaded by `CarteMaroc`).
-3. The centre's city is derived from `nomCentre` via `CarteMaroc.coordCentre`, which
-   tolerates a `Centre ` prefix (e.g. `Centre Rabat` → `Rabat`).
-4. Seat the candidate in the first room of that centre with remaining capacity
-   (rooms sorted by name, then `id_salle`).
+- `classpath:geo/villes-maroc.json` — Moroccan cities with GPS coordinates (`CarteMaroc`),
+  used for great-circle (Haversine, km) distances.
+- `classpath:geo/regions-maroc.json` — the 12 Moroccan administrative regions and the
+  cities/provinces they contain (`ReferentielRegionsMaroc`), used to prefer same-region centres.
+
+For each candidate (sorted by `numero_inscription`), within their competition's centres:
+
+1. **Resolve the candidate's location.** A city resolves to GPS coordinates (`CarteMaroc.coord`)
+   and/or to an administrative region (`ReferentielRegionsMaroc.regionDe`, which tolerates
+   multi-word names). A centre's city/region is derived from `nomCentre` (tolerating a
+   `Centre ` prefix, e.g. `Centre Rabat` → `Rabat`).
+2. **Rank all eligible centres by a proximity score** (`centresParProximite`):
+   - If **at least one** centre of that competition is in the candidate's region
+     (`auMoinsUnCentreDansRegion`), the score is **regional**: same region ⇒ GPS distance
+     (0 if same city); different region ⇒ a large out-of-region penalty + inter-region
+     centroid distance + GPS distance. This keeps candidates within their region whenever
+     a centre exists there.
+   - Otherwise the score is **pure GPS distance** (falling back to inter-region centroid
+     distance when a city has no coordinates).
+3. **Seat the candidate** in the first room with remaining capacity, scanning centres in
+   ranked order (nearest first) and, within a centre, rooms sorted by name then `id_salle`.
+   The candidate lands in the closest centre that still has a free seat — not only the single
+   nearest one.
 
 Centres and rooms are derived from lieux-service salles filtered by `numero_concours`,
 not from concours-service centre assignments directly.
 
 Alert types when a candidate cannot be seated:
 
-| Type                      | Cause                                              |
-| ------------------------- | -------------------------------------------------- |
-| `CONCOURS_INCONNU`        | Candidate has no valid `numero_concours`           |
-| `AUCUN_CENTRE_DISPONIBLE` | No usable room/centre for the competition          |
-| `VILLE_NON_GEOLOCALISEE`  | Candidate's city is absent from the gazetteer      |
-| `CAPACITE_DEPASSEE`       | Nearest centre is full                             |
+| Type                      | Cause                                                                 |
+| ------------------------- | -------------------------------------------------------------------- |
+| `CONCOURS_INCONNU`        | Candidate has no valid / planned `numero_concours`                   |
+| `AUCUN_CENTRE_DISPONIBLE` | No usable room/centre for the competition                            |
+| `VILLE_NON_GEOLOCALISEE`  | Candidate's city is **neither** geolocated **nor** mapped to a region |
+| `CAPACITE_DEPASSEE`       | **All** centres of the competition are full (reports the nearest one) |
 
 Each run is a **full re-distribution**: capacity is recomputed from scratch, and
 candidates not seated in the current run have their affectation cleared (`null`).
@@ -369,7 +393,10 @@ When seeding data manually (or via `scripts/seed-demo-data.ps1`):
   stable across services and human-readable in logs and Excel imports.
 - **Stateless distributed auth**: a single shared HS256 secret lets every service
   validate JWTs independently — simple, but rotating the secret requires redeploying
-  all services, and there is no central token revocation.
+  all services, and there is no central token revocation. The secret and the per-service
+  DB credentials are externalized as environment variables (`JWT_SECRET`, `DB_URL`,
+  `DB_USERNAME`, `DB_PASSWORD`) with dev-only defaults, so production never needs the real
+  values committed in `application.properties`.
 - **API gateway, no discovery**: the gateway centralizes north-south routing and CORS,
   but service URIs are static config. The gateway does not validate JWTs or enforce
   rate limits — those remain in each service.

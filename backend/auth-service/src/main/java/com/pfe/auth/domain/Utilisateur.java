@@ -42,19 +42,39 @@ public class Utilisateur {
         return nomUtilisateur;
     }
 
+    public void setNomUtilisateur(String nomUtilisateur) {
+        this.nomUtilisateur = nomUtilisateur;
+    }
+
     public String getPasswordHash() {
         return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 
     public RoleUtilisateur getRole() {
         return role;
     }
 
+    public void setRole(RoleUtilisateur role) {
+        this.role = role;
+    }
+
     public boolean isActif() {
         return actif;
     }
 
+    public void setActif(boolean actif) {
+        this.actif = actif;
+    }
+
     public Instant getCreeLe() {
         return creeLe;
+    }
+
+    public void setCreeLe(Instant creeLe) {
+        this.creeLe = creeLe;
     }
 }

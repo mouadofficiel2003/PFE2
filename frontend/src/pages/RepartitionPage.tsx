@@ -1,15 +1,17 @@
 import axios from "axios";
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import {
   declencherRepartition,
   fetchRun,
   fetchRuns,
+  reinitialiserRepartition,
+  supprimerRun,
   type RepartitionRunDetail,
   type RepartitionRunSummary,
   type RepartitionStatut,
 } from "../api/repartitionApi";
 import { useAuth } from "../auth/AuthContext";
+import AppHeader from "../components/AppHeader";
 
 const STATUT_LABEL: Record<RepartitionStatut, string> = {
   TERMINEE: "Terminée",
@@ -41,14 +43,16 @@ function formatDate(iso: string | null): string {
 }
 
 export default function RepartitionPage() {
-  const { state, logout } = useAuth();
-  const navigate = useNavigate();
+  const { state } = useAuth();
 
   const [runs, setRuns] = useState<RepartitionRunSummary[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionInfo, setActionInfo] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const [detail, setDetail] = useState<RepartitionRunDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -84,18 +88,18 @@ export default function RepartitionPage() {
   const { user } = state;
   const readOnly = user.role === "ADMINISTRATEUR";
 
-  function handleLogout() {
-    logout();
-    navigate("/login", { replace: true });
-  }
-
   async function handleRun() {
     if (!window.confirm("Lancer une nouvelle répartition automatique de tous les candidats ?")) return;
     setRunning(true);
     setActionError(null);
+    setActionInfo(null);
     try {
       const result = await declencherRepartition();
       setDetail(result);
+      setActionInfo(
+        `Répartition terminée : ${result.totalAffectes}/${result.totalCandidats} candidat(s) affecté(s)` +
+          (result.totalAlertes > 0 ? `, ${result.totalAlertes} alerte(s).` : "."),
+      );
       await loadRuns();
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 403) {
@@ -109,6 +113,63 @@ export default function RepartitionPage() {
       }
     } finally {
       setRunning(false);
+    }
+  }
+
+  async function handleReset() {
+    if (
+      !window.confirm(
+        "Réinitialiser la répartition ? L’affectation (centre, établissement, salle, place) de tous les candidats sera effacée. Aucune répartition ne sera plus active.",
+      )
+    ) {
+      return;
+    }
+    setResetting(true);
+    setActionError(null);
+    setActionInfo(null);
+    try {
+      const result = await reinitialiserRepartition();
+      setActionInfo(
+        `Répartition réinitialisée : ${result.candidatsReinitialises} candidat(s) remis à zéro. Vous pouvez relancer une répartition.`,
+      );
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 403) {
+        setActionError("Réinitialisation réservée au gestionnaire.");
+      } else if (axios.isAxiosError(err) && err.response?.status === 502) {
+        setActionError("Le service candidat est indisponible.");
+      } else if (axios.isAxiosError(err) && err.code === "ECONNABORTED") {
+        setActionError("Délai dépassé pendant la réinitialisation. Réessayez dans un instant.");
+      } else {
+        setActionError(err instanceof Error ? err.message : "Échec de la réinitialisation.");
+      }
+    } finally {
+      setResetting(false);
+    }
+  }
+
+  async function handleDeleteRun(id: number) {
+    if (!window.confirm(`Supprimer l’exécution #${id} de l’historique ? Cette action est définitive.`)) {
+      return;
+    }
+    setDeletingId(id);
+    setActionError(null);
+    setActionInfo(null);
+    try {
+      await supprimerRun(id);
+      setRuns((prev) => (prev ? prev.filter((r) => r.id !== id) : prev));
+      setDetail((prev) => (prev && prev.id === id ? null : prev));
+      setActionInfo(`Exécution #${id} supprimée.`);
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 403) {
+        setActionError("Suppression réservée au gestionnaire.");
+      } else if (axios.isAxiosError(err) && err.response?.status === 404) {
+        setActionError("Exécution introuvable (déjà supprimée ?).");
+        await loadRuns();
+      } else {
+        setActionError(err instanceof Error ? err.message : "Échec de la suppression.");
+      }
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -131,54 +192,40 @@ export default function RepartitionPage() {
 
   return (
     <div style={page}>
-      <header style={header}>
-        <div style={headerInner}>
-          <div style={titleRow}>
-            <h1 style={title}>Répartition</h1>
-            <nav style={nav}>
-              <Link style={navLink} to="/candidats">
-                Candidats
-              </Link>
-              <Link style={navLink} to="/concours">
-                Concours
-              </Link>
-              <Link style={navLink} to="/lieux">
-                Lieux
-              </Link>
-              <Link style={navLinkActive} to="/repartition">
-                Répartition
-              </Link>
-            </nav>
-          </div>
-          <div style={headerActions}>
-            <span style={meta}>
-              {user.username} · {user.role}
-              {readOnly ? " (lecture seule)" : ""}
-            </span>
-            <button type="button" style={btnGhost} onClick={handleLogout}>
-              Déconnexion
-            </button>
-          </div>
-        </div>
-      </header>
+      <AppHeader />
 
       <main style={main}>
-        <p style={lead}>
-          Répartition automatique des candidats : chaque candidat est affecté au centre de concours le plus proche
-          de sa ville (distance réelle), puis placé dans une salle disponible. Chaque exécution est historisée avec
-          ses affectations et ses alertes.
-        </p>
-
         <section style={section}>
           <div style={toolbar}>
             <h2 style={h2Inline}>Exécutions</h2>
             {!readOnly ? (
-              <button type="button" style={btnPrimary} onClick={() => void handleRun()} disabled={running}>
-                {running ? "Répartition en cours…" : "Lancer la répartition"}
-              </button>
+              <div style={toolbarActions}>
+                <button
+                  type="button"
+                  style={btnReset}
+                  onClick={() => void handleReset()}
+                  disabled={running || resetting}
+                  title="Effacer l’affectation de tous les candidats"
+                >
+                  {resetting ? "Réinitialisation…" : "Réinitialiser la répartition"}
+                </button>
+                <button
+                  type="button"
+                  style={btnPrimary}
+                  onClick={() => void handleRun()}
+                  disabled={running || resetting}
+                >
+                  {running ? "Répartition en cours…" : "Lancer la répartition"}
+                </button>
+              </div>
             ) : null}
           </div>
 
+          {actionInfo ? (
+            <p role="status" style={infoBanner}>
+              {actionInfo}
+            </p>
+          ) : null}
           {actionError ? (
             <p role="alert" style={alert}>
               {actionError}
@@ -206,7 +253,7 @@ export default function RepartitionPage() {
                     <th style={th}>Affectés</th>
                     <th style={th}>Alertes</th>
                     <th style={th}>Démarré</th>
-                    <th style={thActions}>Synthèse</th>
+                    <th style={thActions}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -225,6 +272,16 @@ export default function RepartitionPage() {
                         <button type="button" style={btnLink} onClick={() => void openDetail(r.id)}>
                           Voir
                         </button>
+                        {!readOnly ? (
+                          <button
+                            type="button"
+                            style={btnDeleteLink}
+                            onClick={() => void handleDeleteRun(r.id)}
+                            disabled={deletingId === r.id}
+                          >
+                            {deletingId === r.id ? "Suppression…" : "Supprimer"}
+                          </button>
+                        ) : null}
                       </td>
                     </tr>
                   ))}
@@ -351,47 +408,6 @@ function Stat({ label, value }: { label: string; value: number }) {
 
 const page: CSSProperties = { minHeight: "100vh", background: "#f8fafc" };
 
-const header: CSSProperties = {
-  background: "#fff",
-  borderBottom: "1px solid #e2e8f0",
-  boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
-};
-
-const headerInner: CSSProperties = {
-  maxWidth: "1200px",
-  margin: "0 auto",
-  padding: "1rem 1.5rem",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "1rem",
-  flexWrap: "wrap",
-};
-
-const titleRow: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "1.25rem",
-  flexWrap: "wrap",
-};
-
-const title: CSSProperties = { margin: 0, fontSize: "1.35rem", fontWeight: 700 };
-
-const nav: CSSProperties = { display: "flex", gap: "0.5rem", alignItems: "center" };
-
-const navLink: CSSProperties = {
-  fontSize: "0.9rem",
-  fontWeight: 600,
-  color: "#2563eb",
-  textDecoration: "none",
-};
-
-const navLinkActive: CSSProperties = { ...navLink, color: "#0f172a", textDecoration: "underline" };
-
-const headerActions: CSSProperties = { display: "flex", alignItems: "center", gap: "1rem" };
-
-const meta: CSSProperties = { fontSize: "0.875rem", color: "#64748b" };
-
 const btnGhost: CSSProperties = {
   padding: "0.45rem 0.85rem",
   borderRadius: "8px",
@@ -414,8 +430,6 @@ const btnPrimary: CSSProperties = {
 };
 
 const main: CSSProperties = { maxWidth: "1200px", margin: "0 auto", padding: "2rem 1.5rem" };
-
-const lead: CSSProperties = { marginTop: 0, fontSize: "1rem", lineHeight: 1.6, color: "#334155" };
 
 const section: CSSProperties = {
   marginTop: "1.5rem",
@@ -461,7 +475,7 @@ const th: CSSProperties = {
   fontWeight: 600,
 };
 
-const thActions: CSSProperties = { ...th, textAlign: "right", minWidth: "90px" };
+const thActions: CSSProperties = { ...th, textAlign: "right", minWidth: "160px" };
 
 const td: CSSProperties = {
   padding: "0.45rem 0.4rem",
@@ -478,6 +492,43 @@ const btnLink: CSSProperties = {
   cursor: "pointer",
   fontWeight: 600,
   fontSize: "0.8125rem",
+};
+
+const btnDeleteLink: CSSProperties = {
+  border: "none",
+  background: "none",
+  color: "#dc2626",
+  cursor: "pointer",
+  fontWeight: 600,
+  fontSize: "0.8125rem",
+  marginLeft: "0.75rem",
+};
+
+const toolbarActions: CSSProperties = {
+  display: "flex",
+  gap: "0.5rem",
+  flexWrap: "wrap",
+};
+
+const btnReset: CSSProperties = {
+  padding: "0.5rem 1rem",
+  borderRadius: "8px",
+  border: "1px solid #fecaca",
+  background: "#fef2f2",
+  color: "#b91c1c",
+  cursor: "pointer",
+  fontWeight: 600,
+  fontSize: "0.875rem",
+};
+
+const infoBanner: CSSProperties = {
+  color: "#166534",
+  background: "#f0fdf4",
+  border: "1px solid #86efac",
+  padding: "0.75rem 1rem",
+  borderRadius: "8px",
+  margin: "0 0 1rem",
+  fontSize: "0.9rem",
 };
 
 const badge: CSSProperties = {

@@ -134,3 +134,29 @@ export async function fetchRun(id: number): Promise<RepartitionRunDetail> {
 
 }
 
+
+
+export type ReinitialisationResult = {
+
+  candidatsReinitialises: number;
+
+};
+
+
+
+export async function reinitialiserRepartition(): Promise<ReinitialisationResult> {
+
+  const { data } = await apiClient.post<ReinitialisationResult>("/api/repartition/reset");
+
+  return data;
+
+}
+
+
+
+export async function supprimerRun(id: number): Promise<void> {
+
+  await apiClient.delete(`/api/repartition/runs/${id}`);
+
+}
+

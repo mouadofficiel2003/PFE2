@@ -330,7 +330,7 @@ public class RepartitionPlanner {
 
         List<CentreCible> tries = centresParProximite(centres, villeCandidat, villeCoord);
 
-        return tries.isEmpty() ? null : tries.getFirst();
+        return tries.isEmpty() ? null : tries.get(0);
 
     }
 

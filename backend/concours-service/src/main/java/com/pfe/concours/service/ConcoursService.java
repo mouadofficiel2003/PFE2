@@ -105,6 +105,47 @@ public class ConcoursService {
         return toResponse(concoursRepository.save(c));
     }
 
+    /**
+     * Ajoute un centre aux affectations d'un concours s'il n'y figure pas déjà (idempotent).
+     * Appelé par lieux-service quand une salle est rattachée à ce concours, afin que le centre
+     * apparaisse dans la liste des concours. Ne retire jamais de centre (la liste reste pilotée
+     * manuellement via le formulaire concours).
+     */
+    @Transactional
+    public ConcoursResponse ajouterAffectation(String numeroConcours, CentreAffectationRequest req) {
+        Concours c = concoursRepository
+                .findByIdWithAffectations(numeroConcours.trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Concours introuvable"));
+        boolean dejaPresent = c.getAffectationsCentres().stream()
+                .anyMatch(a -> a.getIdCentre().equals(req.idCentre()));
+        if (!dejaPresent) {
+            ConcoursAffectationCentre a = new ConcoursAffectationCentre();
+            a.setIdCentre(req.idCentre());
+            a.setNomCentre(req.nomCentre().trim());
+            a.setConcours(c);
+            c.getAffectationsCentres().add(a);
+            c.setModifieLe(Instant.now());
+            try {
+                return toResponse(concoursRepository.save(c));
+            } catch (DataIntegrityViolationException e) {
+                // Centre déjà lié (uq_concours_affectation_nom) : on reste idempotent.
+            }
+        }
+        return toResponse(c);
+    }
+
+    /**
+     * Propage le renommage d'un centre (lieux-service) sur toutes les affectations qui le référencent,
+     * car {@code nom_centre} est une copie dénormalisée. Retourne le nombre d'affectations mises à jour.
+     */
+    @Transactional
+    public int renommerCentre(Long idCentre, String nouveauNom) {
+        if (idCentre == null || nouveauNom == null || nouveauNom.isBlank()) {
+            return 0;
+        }
+        return concoursRepository.renommerCentre(idCentre, nouveauNom.trim());
+    }
+
     @Transactional
     public void supprimer(String numeroConcours) {
         String numero = numeroConcours.trim();

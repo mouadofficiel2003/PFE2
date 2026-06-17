@@ -17,6 +17,8 @@ import com.pfe.repartition.service.RepartitionPlanner.Plan;
 import com.pfe.repartition.support.HttpRequestContext;
 import com.pfe.repartition.web.dto.AffectationResponse;
 import com.pfe.repartition.web.dto.AlerteResponse;
+import com.pfe.repartition.remote.dto.AffectationBatchResultJson;
+import com.pfe.repartition.web.dto.ReinitialisationResponse;
 import com.pfe.repartition.web.dto.RepartitionRunResponse;
 import com.pfe.repartition.web.dto.RepartitionRunSummaryResponse;
 import java.time.Instant;
@@ -124,6 +126,36 @@ public class RepartitionService {
             raison = ex.getClass().getSimpleName();
         }
         return raison.length() > 500 ? raison.substring(0, 500) : raison;
+    }
+
+    /**
+     * Réinitialise la répartition : remet à zéro l'affectation (centre / établissement / salle / place)
+     * de tous les candidats. Après cet appel, plus aucune répartition n'est « active » côté candidats ;
+     * l'historique des exécutions, lui, reste consultable (utiliser la suppression d'un run pour le purger).
+     */
+    public ReinitialisationResponse reinitialiser() {
+        String auth = HttpRequestContext.authorizationHeaderOrNull();
+        List<CandidatJson> candidats = candidatRemoteClient.listCandidats(auth);
+
+        List<AffectationBatchJson.Item> items = new ArrayList<>();
+        for (CandidatJson cand : candidats) {
+            if (cand == null || cand.numeroInscription() == null || cand.numeroInscription().isBlank()) {
+                continue;
+            }
+            items.add(new AffectationBatchJson.Item(cand.numeroInscription(), null, null, null, null));
+        }
+
+        AffectationBatchResultJson result =
+                candidatRemoteClient.appliquerAffectations(new AffectationBatchJson(items), auth);
+        return new ReinitialisationResponse(result != null ? result.misAJour() : 0);
+    }
+
+    /** Supprime une exécution historisée (avec ses affectations et alertes). */
+    public void supprimerRun(Long id) {
+        if (!runFacade.existe(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Run de répartition introuvable");
+        }
+        runFacade.supprimer(id);
     }
 
     @Transactional(readOnly = true)

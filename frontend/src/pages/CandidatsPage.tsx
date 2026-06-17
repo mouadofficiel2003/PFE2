@@ -1,16 +1,25 @@
 import axios from "axios";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import {
   deleteCandidat,
   fetchCandidats,
   importCandidatsExcel,
+  reinitialiserCandidats,
   updateCandidat,
   type CandidatDto,
   type CandidatUpdatePayload,
 } from "../api/candidatsApi";
 import { fetchConcours, type ConcoursDto } from "../api/concoursApi";
+import {
+  fetchCentre,
+  fetchCentres,
+  type CentreDetailDto,
+  type CentreListItemDto,
+  type EtablissementDetailDto,
+  type SalleDto,
+} from "../api/lieuxApi";
 import { useAuth } from "../auth/AuthContext";
+import AppHeader from "../components/AppHeader";
 
 function dtoToForm(c: CandidatDto): CandidatUpdatePayload {
   return {
@@ -33,19 +42,25 @@ function dtoToForm(c: CandidatDto): CandidatUpdatePayload {
 }
 
 export default function CandidatsPage() {
-  const { state, logout } = useAuth();
-  const navigate = useNavigate();
+  const { state } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [candidats, setCandidats] = useState<CandidatDto[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [importBusy, setImportBusy] = useState(false);
   const [importFeedback, setImportFeedback] = useState<string | null>(null);
+  const [resetBusy, setResetBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [editing, setEditing] = useState<CandidatDto | null>(null);
   const [editForm, setEditForm] = useState<CandidatUpdatePayload | null>(null);
   const [saving, setSaving] = useState(false);
   const [concoursList, setConcoursList] = useState<ConcoursDto[]>([]);
+  const [centresList, setCentresList] = useState<CentreListItemDto[]>([]);
+  const [centreDetail, setCentreDetail] = useState<CentreDetailDto | null>(null);
+  const [centreDetailLoading, setCentreDetailLoading] = useState(false);
+  const [centreNameById, setCentreNameById] = useState<Map<number, string>>(new Map());
+  const [etabNameById, setEtabNameById] = useState<Map<number, string>>(new Map());
+  const [salleNameById, setSalleNameById] = useState<Map<number, string>>(new Map());
 
   const loadList = useCallback(async () => {
     setLoading(true);
@@ -97,6 +112,44 @@ export default function CandidatsPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await fetchCentres();
+        if (cancelled) return;
+        setCentresList(list);
+        const details = await Promise.all(
+          list.map((c) => fetchCentre(c.idCentre).catch(() => null)),
+        );
+        if (cancelled) return;
+        const cMap = new Map<number, string>();
+        const eMap = new Map<number, string>();
+        const sMap = new Map<number, string>();
+        for (const d of details) {
+          if (!d) continue;
+          cMap.set(d.idCentre, d.nomCentre);
+          for (const etab of d.etablissements) {
+            eMap.set(etab.idEtablissement, etab.nomEtablissement);
+            for (const s of etab.salles) {
+              sMap.set(s.idSalle, s.nomSalle);
+            }
+          }
+        }
+        setCentreNameById(cMap);
+        setEtabNameById(eMap);
+        setSalleNameById(sMap);
+      } catch {
+        if (!cancelled) {
+          setCentresList([]);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   if (state.status !== "authenticated") {
     return null;
   }
@@ -104,21 +157,71 @@ export default function CandidatsPage() {
   const { user } = state;
   const readOnly = user.role === "ADMINISTRATEUR";
 
-  function handleLogout() {
-    logout();
-    navigate("/login", { replace: true });
-  }
+  const loadCentreDetail = useCallback(async (idCentre: number | null) => {
+    if (idCentre == null) {
+      setCentreDetail(null);
+      return;
+    }
+    setCentreDetailLoading(true);
+    try {
+      const d = await fetchCentre(idCentre);
+      setCentreDetail(d);
+    } catch {
+      setCentreDetail(null);
+    } finally {
+      setCentreDetailLoading(false);
+    }
+  }, []);
 
   function openEdit(c: CandidatDto) {
     setActionError(null);
     setEditing(c);
     setEditForm(dtoToForm(c));
+    setCentreDetail(null);
+    if (c.idCentre != null) {
+      void loadCentreDetail(c.idCentre);
+    }
   }
 
   function closeEdit() {
     setEditing(null);
     setEditForm(null);
     setSaving(false);
+    setCentreDetail(null);
+  }
+
+  function handleCentreChange(value: string) {
+    if (!editForm) return;
+    const idCentre = value === "" ? null : Number(value);
+    setEditForm({
+      ...editForm,
+      idCentre,
+      idEtablissement: null,
+      idSalle: null,
+      numeroPlace: null,
+    });
+    void loadCentreDetail(idCentre);
+  }
+
+  function handleEtablissementChange(value: string) {
+    if (!editForm) return;
+    const idEtablissement = value === "" ? null : Number(value);
+    setEditForm({
+      ...editForm,
+      idEtablissement,
+      idSalle: null,
+      numeroPlace: null,
+    });
+  }
+
+  function handleSalleChange(value: string) {
+    if (!editForm) return;
+    const idSalle = value === "" ? null : Number(value);
+    setEditForm({
+      ...editForm,
+      idSalle,
+      numeroPlace: null,
+    });
   }
 
   async function handleSaveEdit(e: FormEvent) {
@@ -211,44 +314,58 @@ export default function CandidatsPage() {
     }
   }
 
+  async function handleReset() {
+    const total = candidats?.length ?? 0;
+    const ok = window.confirm(
+      total > 0
+        ? `Réinitialiser la liste ? Les ${total} candidat${total > 1 ? "s" : ""} seront définitivement supprimés.`
+        : "Réinitialiser la liste des candidats ? Cette action est définitive.",
+    );
+    if (!ok) return;
+    setResetBusy(true);
+    setActionError(null);
+    setImportFeedback(null);
+    try {
+      const res = await reinitialiserCandidats();
+      setCandidats([]);
+      setImportFeedback(
+        res.deleted > 0
+          ? `Liste réinitialisée : ${res.deleted} candidat${res.deleted > 1 ? "s" : ""} supprimé${res.deleted > 1 ? "s" : ""}.`
+          : "La liste était déjà vide.",
+      );
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 403) {
+        setActionError("Réinitialisation réservée au gestionnaire (403).");
+      } else if (axios.isAxiosError(err) && err.response?.data) {
+        const d = err.response.data as { message?: string; detail?: string };
+        setActionError(d.message ?? d.detail ?? "Échec de la réinitialisation.");
+      } else {
+        setActionError(err instanceof Error ? err.message : "Échec de la réinitialisation.");
+      }
+    } finally {
+      setResetBusy(false);
+    }
+  }
+
+  const etablissements: EtablissementDetailDto[] = centreDetail?.etablissements ?? [];
+  const selectedEtab: EtablissementDetailDto | null = editForm
+    ? etablissements.find((e) => e.idEtablissement === editForm.idEtablissement) ?? null
+    : null;
+  const sallesDisponibles: SalleDto[] = (selectedEtab?.salles ?? []).filter(
+    (s) =>
+      s.idSalle === editForm?.idSalle ||
+      s.numeroConcours == null ||
+      s.numeroConcours === "" ||
+      s.numeroConcours === (editForm?.numeroConcours ?? null),
+  );
+  const selectedSalle: SalleDto | null = editForm
+    ? sallesDisponibles.find((s) => s.idSalle === editForm.idSalle) ?? null
+    : null;
+
   return (
     <div style={page}>
-      <header style={header}>
-        <div style={headerInner}>
-          <div style={titleRow}>
-            <h1 style={title}>Candidats</h1>
-            <nav style={nav}>
-              <Link style={navLinkActive} to="/candidats">
-                Candidats
-              </Link>
-              <Link style={navLink} to="/concours">
-                Concours
-              </Link>
-              <Link style={navLink} to="/lieux">
-                Lieux
-              </Link>
-              <Link style={navLink} to="/repartition">
-                Répartition
-              </Link>
-            </nav>
-          </div>
-          <div style={headerActions}>
-            <span style={meta}>
-              {user.username} · {user.role}
-              {readOnly ? " (lecture seule)" : ""}
-            </span>
-            <button type="button" style={btnGhost} onClick={handleLogout}>
-              Déconnexion
-            </button>
-          </div>
-        </div>
-      </header>
+      <AppHeader />
       <main style={main}>
-        <p style={lead}>
-          Liste des candidats admis. Le gestionnaire peut importer un fichier Excel (.xlsx), puis consulter, modifier ou
-          supprimer chaque ligne.
-        </p>
-
         <section style={section}>
           <div style={toolbar}>
             <h2 style={h2Inline}>Liste des candidats</h2>
@@ -263,9 +380,17 @@ export default function CandidatsPage() {
                 />
                 <button
                   type="button"
+                  style={btnReset}
+                  onClick={() => void handleReset()}
+                  disabled={resetBusy || importBusy || loading || !candidats || candidats.length === 0}
+                >
+                  {resetBusy ? "Réinitialisation…" : "Réinitialiser la liste"}
+                </button>
+                <button
+                  type="button"
                   style={btnPrimary}
                   onClick={triggerImportClick}
-                  disabled={importBusy || loading}
+                  disabled={importBusy || resetBusy || loading}
                 >
                   {importBusy ? "Import…" : "Importer fichier Excel"}
                 </button>
@@ -292,58 +417,118 @@ export default function CandidatsPage() {
             <p style={muted}>Aucun candidat. Importez un fichier Excel ou ajoutez des données côté serveur.</p>
           ) : null}
           {!loading && !loadError && candidats && candidats.length > 0 ? (
-            <div style={tableWrap}>
-              <table style={table}>
-                <thead>
-                  <tr>
-                    <th style={th}>Nom</th>
-                    <th style={th}>Prénom</th>
-                    <th style={th}>CIN</th>
-                    <th style={th}>Tél.</th>
-                    <th style={th}>Ville</th>
-                    <th style={th}>Âge</th>
-                    <th style={th}>Email</th>
-                    <th style={th}>Spécialité</th>
-                    <th style={th}>N° inscr.</th>
-                    <th style={th}>N° concours</th>
-                    <th style={th}>Concours</th>
-                    {!readOnly ? <th style={thActions}>Actions</th> : null}
-                  </tr>
-                </thead>
-                <tbody>
-                  {candidats.map((c) => (
-                    <tr key={c.numeroInscription}>
-                      <td style={td}>{c.nom}</td>
-                      <td style={td}>{c.prenom}</td>
-                      <td style={td}>{c.cin}</td>
-                      <td style={td}>{c.numeroTelephone}</td>
-                      <td style={td}>{c.ville}</td>
-                      <td style={td}>{c.age}</td>
-                      <td style={tdEmail}>{c.email}</td>
-                      <td style={td}>{c.specialite}</td>
-                      <td style={td}>{c.numeroInscription}</td>
-                      <td style={td}>{c.numeroConcours ?? "—"}</td>
-                      <td style={td}>{c.nomConcours}</td>
+            <>
+              <p style={countLine}>
+                {candidats.length} candidat{candidats.length > 1 ? "s" : ""}
+              </p>
+              <div style={cardGrid}>
+                {candidats.map((c) => {
+                  const initials =
+                    `${(c.prenom?.[0] ?? "").toUpperCase()}${(c.nom?.[0] ?? "").toUpperCase()}` || "?";
+                  const affecte =
+                    c.idCentre != null ||
+                    c.idEtablissement != null ||
+                    c.idSalle != null ||
+                    c.numeroPlace != null;
+                  return (
+                    <article key={c.numeroInscription} style={candidateCard}>
+                      <div style={cardTop}>
+                        <span style={avatar} aria-hidden="true">
+                          {initials}
+                        </span>
+                        <div style={cardIdentity}>
+                          <h3 style={cardName}>
+                            {c.prenom} {c.nom}
+                          </h3>
+                          <span style={cardSub}>
+                            CIN {c.cin} · N° {c.numeroInscription}
+                          </span>
+                        </div>
+                      </div>
+
+                      <dl style={infoList}>
+                        <div style={infoRow}>
+                          <dt style={infoLabel}>Téléphone</dt>
+                          <dd style={infoValue}>{c.numeroTelephone || "—"}</dd>
+                        </div>
+                        <div style={infoRow}>
+                          <dt style={infoLabel}>Email</dt>
+                          <dd style={infoValueBreak}>{c.email || "—"}</dd>
+                        </div>
+                        <div style={infoRow}>
+                          <dt style={infoLabel}>Ville</dt>
+                          <dd style={infoValue}>{c.ville || "—"}</dd>
+                        </div>
+                        <div style={infoRow}>
+                          <dt style={infoLabel}>Âge</dt>
+                          <dd style={infoValue}>{c.age ? `${c.age} ans` : "—"}</dd>
+                        </div>
+                        <div style={infoRow}>
+                          <dt style={infoLabel}>Spécialité</dt>
+                          <dd style={infoValue}>{c.specialite || "—"}</dd>
+                        </div>
+                        <div style={infoRow}>
+                          <dt style={infoLabel}>Concours</dt>
+                          <dd style={infoValue}>
+                            {c.nomConcours || "—"}
+                            {c.numeroConcours ? ` (${c.numeroConcours})` : ""}
+                          </dd>
+                        </div>
+                      </dl>
+
+                      <div style={affecte ? locationLine : locationLineEmpty}>
+                        <svg
+                          style={locationPin}
+                          viewBox="0 0 24 24"
+                          width="16"
+                          height="16"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z" />
+                          <circle cx="12" cy="10" r="3" />
+                        </svg>
+                        {affecte ? (
+                          <div style={locationChips}>
+                            <span style={locChip}>
+                              Centre {c.idCentre != null ? (centreNameById.get(c.idCentre) ?? c.idCentre) : "—"}
+                            </span>
+                            <span style={locChip}>
+                              Établissement{" "}
+                              {c.idEtablissement != null
+                                ? (etabNameById.get(c.idEtablissement) ?? c.idEtablissement)
+                                : "—"}
+                            </span>
+                            <span style={locChip}>
+                              Salle {c.idSalle != null ? (salleNameById.get(c.idSalle) ?? c.idSalle) : "—"}
+                            </span>
+                            <span style={locChipAccent}>Place {c.numeroPlace ?? "—"}</span>
+                          </div>
+                        ) : (
+                          <span style={locationEmptyText}>Non encore affecté à un lieu</span>
+                        )}
+                      </div>
+
                       {!readOnly ? (
-                        <td style={tdActions}>
-                          <button type="button" style={btnLink} onClick={() => openEdit(c)}>
+                        <div style={cardActions}>
+                          <button type="button" style={btnEdit} onClick={() => openEdit(c)}>
                             Modifier
                           </button>
-                          <button type="button" style={btnDanger} onClick={() => void handleDelete(c)}>
+                          <button type="button" style={btnDelete} onClick={() => void handleDelete(c)}>
                             Supprimer
                           </button>
-                        </td>
+                        </div>
                       ) : null}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </>
           ) : null}
-          <p style={hint}>
-            Format Excel : en-tête avec colonnes Nom, Prénom, CIN, Téléphone, Ville, Âge, Email, Spécialité, Numéro
-            d&apos;inscription, Nom du concours — ou dix colonnes dans cet ordre sans ligne d&apos;en-tête.
-          </p>
         </section>
       </main>
 
@@ -473,47 +658,67 @@ export default function CandidatsPage() {
                     ))}
                   </select>
                 </label>
+                <div style={{ ...label, gridColumn: "1 / -1", gap: "0.35rem" }}>
+                  <span style={sectionLabel}>Affectation du lieu (optionnel)</span>
+                  <span style={sectionHint}>
+                    Choisissez par nom : centre, puis établissement, puis salle. Laissez « — Aucun — »
+                    pour ne pas affecter de lieu.
+                  </span>
+                </div>
                 <label style={label}>
-                  Centre ID (optionnel)
-                  <input
+                  Centre
+                  <select
                     style={input}
-                    type="number"
                     value={editForm.idCentre ?? ""}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        idCentre: e.target.value === "" ? null : Number(e.target.value),
-                      })
-                    }
-                  />
+                    onChange={(e) => handleCentreChange(e.target.value)}
+                  >
+                    <option value="">— Aucun —</option>
+                    {centresList.map((c) => (
+                      <option key={c.idCentre} value={c.idCentre}>
+                        {c.nomCentre}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label style={label}>
-                  Établissement ID (optionnel)
-                  <input
+                  Établissement
+                  <select
                     style={input}
-                    type="number"
                     value={editForm.idEtablissement ?? ""}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        idEtablissement: e.target.value === "" ? null : Number(e.target.value),
-                      })
-                    }
-                  />
+                    onChange={(e) => handleEtablissementChange(e.target.value)}
+                    disabled={editForm.idCentre == null || centreDetailLoading}
+                  >
+                    <option value="">
+                      {editForm.idCentre == null
+                        ? "Choisir un centre d’abord…"
+                        : centreDetailLoading
+                          ? "Chargement…"
+                          : "— Aucun —"}
+                    </option>
+                    {etablissements.map((etab) => (
+                      <option key={etab.idEtablissement} value={etab.idEtablissement}>
+                        {etab.nomEtablissement}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label style={label}>
-                  Salle ID (optionnel)
-                  <input
+                  Salle
+                  <select
                     style={input}
-                    type="number"
                     value={editForm.idSalle ?? ""}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        idSalle: e.target.value === "" ? null : Number(e.target.value),
-                      })
-                    }
-                  />
+                    onChange={(e) => handleSalleChange(e.target.value)}
+                    disabled={editForm.idEtablissement == null}
+                  >
+                    <option value="">
+                      {editForm.idEtablissement == null ? "Choisir un établissement d’abord…" : "— Aucune —"}
+                    </option>
+                    {sallesDisponibles.map((s) => (
+                      <option key={s.idSalle} value={s.idSalle}>
+                        {s.nomSalle} ({s.nombrePlaces} places)
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label style={label}>
                   N° place (optionnel)
@@ -521,12 +726,17 @@ export default function CandidatsPage() {
                     style={input}
                     type="number"
                     min={1}
+                    max={selectedSalle?.nombrePlaces ?? undefined}
                     value={editForm.numeroPlace ?? ""}
                     onChange={(e) =>
                       setEditForm({
                         ...editForm,
                         numeroPlace: e.target.value === "" ? null : Number(e.target.value),
                       })
+                    }
+                    disabled={editForm.idSalle == null}
+                    placeholder={
+                      selectedSalle ? `1 à ${selectedSalle.nombrePlaces}` : "Affectez une salle d’abord"
                     }
                   />
                 </label>
@@ -558,62 +768,6 @@ const page: CSSProperties = {
   color: "#0f172a",
 };
 
-const titleRow: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "1.25rem",
-  flexWrap: "wrap",
-};
-
-const nav: CSSProperties = { display: "flex", gap: "0.5rem", alignItems: "center" };
-
-const navLink: CSSProperties = {
-  fontSize: "0.9rem",
-  fontWeight: 600,
-  color: "#2563eb",
-  textDecoration: "none",
-};
-
-const navLinkActive: CSSProperties = {
-  ...navLink,
-  color: "#0f172a",
-  textDecoration: "underline",
-};
-
-const header: CSSProperties = {
-  background: "#fff",
-  borderBottom: "1px solid #e2e8f0",
-  boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
-};
-
-const headerInner: CSSProperties = {
-  maxWidth: "1200px",
-  margin: "0 auto",
-  padding: "1rem 1.5rem",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "1rem",
-  flexWrap: "wrap",
-};
-
-const title: CSSProperties = {
-  margin: 0,
-  fontSize: "1.35rem",
-  fontWeight: 700,
-};
-
-const headerActions: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "1rem",
-};
-
-const meta: CSSProperties = {
-  fontSize: "0.875rem",
-  color: "#64748b",
-};
-
 const btnGhost: CSSProperties = {
   padding: "0.45rem 0.85rem",
   borderRadius: "8px",
@@ -635,17 +789,21 @@ const btnPrimary: CSSProperties = {
   fontSize: "0.875rem",
 };
 
+const btnReset: CSSProperties = {
+  padding: "0.5rem 1rem",
+  borderRadius: "8px",
+  border: "1px solid #fecaca",
+  background: "#fef2f2",
+  color: "#dc2626",
+  cursor: "pointer",
+  fontWeight: 600,
+  fontSize: "0.875rem",
+};
+
 const main: CSSProperties = {
   maxWidth: "1200px",
   margin: "0 auto",
   padding: "2rem 1.5rem",
-};
-
-const lead: CSSProperties = {
-  marginTop: 0,
-  fontSize: "1rem",
-  lineHeight: 1.6,
-  color: "#334155",
 };
 
 const section: CSSProperties = {
@@ -699,74 +857,187 @@ const infoBanner: CSSProperties = {
   fontSize: "0.9rem",
 };
 
-const tableWrap: CSSProperties = {
-  overflowX: "auto",
-  marginTop: "0.5rem",
-};
-
-const table: CSSProperties = {
-  width: "100%",
-  borderCollapse: "collapse",
-  fontSize: "0.8125rem",
-};
-
-const th: CSSProperties = {
-  textAlign: "left",
-  padding: "0.5rem 0.4rem",
-  borderBottom: "2px solid #e2e8f0",
-  color: "#475569",
+const countLine: CSSProperties = {
+  margin: "0 0 1rem",
+  fontSize: "0.85rem",
   fontWeight: 600,
-  whiteSpace: "nowrap",
+  color: "#64748b",
 };
 
-const thActions: CSSProperties = {
-  ...th,
-  textAlign: "right",
-  minWidth: "140px",
+const cardGrid: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+  gap: "1.25rem",
 };
 
-const td: CSSProperties = {
-  padding: "0.45rem 0.4rem",
-  borderBottom: "1px solid #f1f5f9",
-  verticalAlign: "top",
+const candidateCard: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "1rem",
+  padding: "1.25rem",
+  background: "#fff",
+  border: "1px solid #e2e8f0",
+  borderRadius: "14px",
+  boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
 };
 
-const tdEmail: CSSProperties = {
-  ...td,
-  maxWidth: "160px",
+const cardTop: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.85rem",
+};
+
+const avatar: CSSProperties = {
+  flexShrink: 0,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "2.75rem",
+  height: "2.75rem",
+  borderRadius: "50%",
+  background: "linear-gradient(135deg, #2563eb 0%, #0f766e 100%)",
+  color: "#fff",
+  fontWeight: 700,
+  fontSize: "1rem",
+  letterSpacing: "0.02em",
+};
+
+const cardIdentity: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "0.15rem",
+  minWidth: 0,
+};
+
+const cardName: CSSProperties = {
+  margin: 0,
+  fontSize: "1.05rem",
+  fontWeight: 700,
+  color: "#0f172a",
+};
+
+const cardSub: CSSProperties = {
+  fontSize: "0.8rem",
+  color: "#64748b",
+};
+
+const infoList: CSSProperties = {
+  margin: 0,
+  display: "flex",
+  flexDirection: "column",
+  gap: "0.5rem",
+};
+
+const infoRow: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "7rem 1fr",
+  alignItems: "baseline",
+  gap: "0.5rem",
+};
+
+const infoLabel: CSSProperties = {
+  margin: 0,
+  fontSize: "0.75rem",
+  fontWeight: 600,
+  textTransform: "uppercase",
+  letterSpacing: "0.03em",
+  color: "#94a3b8",
+};
+
+const infoValue: CSSProperties = {
+  margin: 0,
+  fontSize: "0.875rem",
+  color: "#1e293b",
+};
+
+const infoValueBreak: CSSProperties = {
+  ...infoValue,
   wordBreak: "break-word",
 };
 
-const tdActions: CSSProperties = {
-  ...td,
-  textAlign: "right",
-  whiteSpace: "nowrap",
+const locationLine: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: "0.5rem",
+  padding: "0.75rem 0.85rem",
+  background: "#f0f9ff",
+  border: "1px solid #bae6fd",
+  borderRadius: "10px",
 };
 
-const btnLink: CSSProperties = {
-  border: "none",
-  background: "none",
-  color: "#2563eb",
+const locationLineEmpty: CSSProperties = {
+  ...locationLine,
+  background: "#f8fafc",
+  border: "1px dashed #cbd5e1",
+};
+
+const locationPin: CSSProperties = {
+  flexShrink: 0,
+  marginTop: "0.1rem",
+  color: "#0284c7",
+};
+
+const locationChips: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "0.4rem",
+};
+
+const locChip: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "0.2rem 0.55rem",
+  borderRadius: "999px",
+  background: "#fff",
+  border: "1px solid #bae6fd",
+  fontSize: "0.75rem",
+  fontWeight: 600,
+  color: "#0369a1",
+};
+
+const locChipAccent: CSSProperties = {
+  ...locChip,
+  background: "#0284c7",
+  border: "1px solid #0284c7",
+  color: "#fff",
+};
+
+const locationEmptyText: CSSProperties = {
+  fontSize: "0.8rem",
+  color: "#64748b",
+  fontStyle: "italic",
+};
+
+const cardActions: CSSProperties = {
+  display: "flex",
+  gap: "0.5rem",
+  paddingTop: "0.85rem",
+  borderTop: "1px solid #f1f5f9",
+  marginTop: "auto",
+};
+
+const btnEdit: CSSProperties = {
+  flex: 1,
+  padding: "0.5rem 0.75rem",
+  borderRadius: "8px",
+  border: "1px solid #cbd5e1",
+  background: "#fff",
+  color: "#1e293b",
   cursor: "pointer",
   fontWeight: 600,
   fontSize: "0.8125rem",
-  marginRight: "0.5rem",
 };
 
-const btnDanger: CSSProperties = {
-  border: "none",
-  background: "none",
+const btnDelete: CSSProperties = {
+  flex: 1,
+  padding: "0.5rem 0.75rem",
+  borderRadius: "8px",
+  border: "1px solid #fecaca",
+  background: "#fef2f2",
   color: "#dc2626",
   cursor: "pointer",
   fontWeight: 600,
   fontSize: "0.8125rem",
-};
-
-const hint: CSSProperties = {
-  margin: "1rem 0 0",
-  fontSize: "0.8rem",
-  color: "#64748b",
-  lineHeight: 1.5,
 };
 
 const modalBackdrop: CSSProperties = {
@@ -817,6 +1088,18 @@ const input: CSSProperties = {
   borderRadius: "6px",
   border: "1px solid #cbd5e1",
   fontSize: "0.875rem",
+};
+
+const sectionLabel: CSSProperties = {
+  fontSize: "0.85rem",
+  fontWeight: 700,
+  color: "#0f172a",
+};
+
+const sectionHint: CSSProperties = {
+  fontSize: "0.75rem",
+  fontWeight: 400,
+  color: "#64748b",
 };
 
 const modalActions: CSSProperties = {

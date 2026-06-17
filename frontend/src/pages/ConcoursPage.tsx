@@ -1,6 +1,6 @@
 import axios from "axios";
 import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   createConcours,
   deleteConcours,
@@ -12,6 +12,7 @@ import {
 } from "../api/concoursApi";
 import { fetchCentres, type CentreListItemDto } from "../api/lieuxApi";
 import { useAuth } from "../auth/AuthContext";
+import AppHeader from "../components/AppHeader";
 
 type CentreFormRow = { idCentre: string };
 
@@ -50,8 +51,7 @@ function rowsToPayload(
 }
 
 export default function ConcoursPage() {
-  const { state, logout } = useAuth();
-  const navigate = useNavigate();
+  const { state } = useAuth();
   const [list, setList] = useState<ConcoursDto[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -105,11 +105,6 @@ export default function ConcoursPage() {
 
   const { user } = state;
   const readOnly = user.role === "ADMINISTRATEUR";
-
-  function handleLogout() {
-    logout();
-    navigate("/login", { replace: true });
-  }
 
   function openCreate() {
     setActionError(null);
@@ -213,42 +208,8 @@ export default function ConcoursPage() {
 
   return (
     <div style={page}>
-      <header style={header}>
-        <div style={headerInner}>
-          <div style={titleRow}>
-            <h1 style={title}>Concours</h1>
-            <nav style={nav}>
-              <Link style={navLink} to="/candidats">
-                Candidats
-              </Link>
-              <Link style={navLinkActive} to="/concours">
-                Concours
-              </Link>
-              <Link style={navLink} to="/lieux">
-                Lieux
-              </Link>
-              <Link style={navLink} to="/repartition">
-                Répartition
-              </Link>
-            </nav>
-          </div>
-          <div style={headerActions}>
-            <span style={meta}>
-              {user.username} · {user.role}
-              {readOnly ? " (lecture seule)" : ""}
-            </span>
-            <button type="button" style={btnGhost} onClick={handleLogout}>
-              Déconnexion
-            </button>
-          </div>
-        </div>
-      </header>
+      <AppHeader />
       <main style={main}>
-        <p style={lead}>
-          Création des concours : nom, date et heure d’examen, et centres où le concours se déroule (ex. « Centre Rabat » —
-          aligné avec la ville du candidat pour la répartition).
-        </p>
-
         <section style={section}>
           <div style={toolbar}>
             <h2 style={h2Inline}>Liste des concours</h2>
@@ -414,62 +375,6 @@ export default function ConcoursPage() {
 
 const page: CSSProperties = { minHeight: "100vh", background: "#f8fafc" };
 
-const header: CSSProperties = {
-  background: "#fff",
-  borderBottom: "1px solid #e2e8f0",
-  boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
-};
-
-const headerInner: CSSProperties = {
-  maxWidth: "1200px",
-  margin: "0 auto",
-  padding: "1rem 1.5rem",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "1rem",
-  flexWrap: "wrap",
-};
-
-const titleRow: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "1.25rem",
-  flexWrap: "wrap",
-};
-
-const title: CSSProperties = {
-  margin: 0,
-  fontSize: "1.35rem",
-  fontWeight: 700,
-};
-
-const nav: CSSProperties = { display: "flex", gap: "0.5rem", alignItems: "center" };
-
-const navLink: CSSProperties = {
-  fontSize: "0.9rem",
-  fontWeight: 600,
-  color: "#2563eb",
-  textDecoration: "none",
-};
-
-const navLinkActive: CSSProperties = {
-  ...navLink,
-  color: "#0f172a",
-  textDecoration: "underline",
-};
-
-const headerActions: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "1rem",
-};
-
-const meta: CSSProperties = {
-  fontSize: "0.875rem",
-  color: "#64748b",
-};
-
 const btnGhost: CSSProperties = {
   padding: "0.45rem 0.85rem",
   borderRadius: "8px",
@@ -495,13 +400,6 @@ const main: CSSProperties = {
   maxWidth: "1200px",
   margin: "0 auto",
   padding: "2rem 1.5rem",
-};
-
-const lead: CSSProperties = {
-  marginTop: 0,
-  fontSize: "1rem",
-  lineHeight: 1.6,
-  color: "#334155",
 };
 
 const section: CSSProperties = {

@@ -3,6 +3,7 @@ import { AuthProvider } from "./auth/AuthContext";
 import { RequireAuth } from "./auth/RequireAuth";
 import CandidatsPage from "./pages/CandidatsPage";
 import ConcoursPage from "./pages/ConcoursPage";
+import GestionnairesPage from "./pages/GestionnairesPage";
 import LieuxPage from "./pages/LieuxPage";
 import LoginPage from "./pages/LoginPage";
 import RepartitionPage from "./pages/RepartitionPage";
@@ -44,6 +45,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <RepartitionPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/gestionnaires"
+            element={
+              <RequireAuth>
+                <GestionnairesPage />
               </RequireAuth>
             }
           />

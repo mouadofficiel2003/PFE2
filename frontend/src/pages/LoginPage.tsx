@@ -1,6 +1,7 @@
 import { FormEvent, useState, type CSSProperties } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import Brand from "../components/Brand";
 
 type LocationState = { from?: string } | null;
 
@@ -34,7 +35,10 @@ export default function LoginPage() {
   return (
     <div style={layout}>
       <div style={card}>
-        <h1 style={{ marginTop: 0 }}>Connexion</h1>
+        <div style={brandRow}>
+          <Brand asLink={false} size="lg" />
+        </div>
+        <h1 style={{ marginTop: 0, marginBottom: "0.25rem", fontSize: "1.35rem" }}>Connexion</h1>
         <p style={{ color: "#475569", marginTop: 0 }}>
           Gestion des candidatures — authentification
         </p>
@@ -80,6 +84,12 @@ const layout: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: "1.5rem",
+};
+
+const brandRow: CSSProperties = {
+  display: "flex",
+  justifyContent: "center",
+  marginBottom: "1.5rem",
 };
 
 const card: CSSProperties = {

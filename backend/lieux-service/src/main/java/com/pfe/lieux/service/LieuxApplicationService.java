@@ -106,6 +106,8 @@ public class LieuxApplicationService {
         } catch (DataIntegrityViolationException e) {
             throw conflitNomCentre();
         }
+        concoursExistenceClient.renommerCentreDansConcours(
+                idCentre, nom, HttpRequestContext.authorizationHeaderOrNull());
         return obtenirCentre(idCentre);
     }
 
@@ -207,6 +209,7 @@ public class LieuxApplicationService {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "Une salle avec ce nom existe déjà dans cet établissement");
         }
+        synchroniserAffectationConcours(etab.getCentre(), numeroConcours);
         return toSalleResponse(s);
     }
 
@@ -250,6 +253,7 @@ public class LieuxApplicationService {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "Une salle avec ce nom existe déjà dans cet établissement");
         }
+        synchroniserAffectationConcours(s.getEtablissement().getCentre(), numeroConcours);
         return toSalleResponse(s);
     }
 
@@ -264,6 +268,22 @@ public class LieuxApplicationService {
     /** {@code numero_concours} est une référence logique vers concours-service (pas de FK inter-bases). */
     private void validerNumeroConcours(String numeroConcours) {
         concoursExistenceClient.assertConcoursExists(numeroConcours, HttpRequestContext.authorizationHeaderOrNull());
+    }
+
+    /**
+     * Rattacher une salle à un concours fait apparaître son centre dans la liste des concours :
+     * on ajoute (de façon idempotente) le centre aux affectations du concours côté concours-service.
+     * Ajout uniquement : la suppression d'un centre reste pilotée manuellement via le formulaire concours.
+     */
+    private void synchroniserAffectationConcours(Centre centre, String numeroConcours) {
+        if (numeroConcours == null || centre == null) {
+            return;
+        }
+        concoursExistenceClient.ajouterAffectationConcours(
+                numeroConcours,
+                centre.getIdCentre(),
+                centre.getNomCentre(),
+                HttpRequestContext.authorizationHeaderOrNull());
     }
 
     private void assertNomCentreLibre(String nom, Long excludeIdCentre) {

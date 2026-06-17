@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -26,4 +27,13 @@ public interface ConcoursRepository extends JpaRepository<Concours, String> {
             ORDER BY c.nomConcours
             """)
     List<Concours> findDistinctByAffectationIdCentre(@Param("idCentre") Long idCentre);
+
+    @Modifying
+    @Query(
+            """
+            UPDATE ConcoursAffectationCentre a
+            SET a.nomCentre = :nomCentre
+            WHERE a.idCentre = :idCentre AND a.nomCentre <> :nomCentre
+            """)
+    int renommerCentre(@Param("idCentre") Long idCentre, @Param("nomCentre") String nomCentre);
 }

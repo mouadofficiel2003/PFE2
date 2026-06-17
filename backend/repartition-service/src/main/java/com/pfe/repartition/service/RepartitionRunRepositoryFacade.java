@@ -34,4 +34,15 @@ public class RepartitionRunRepositoryFacade {
     public Optional<RepartitionRun> charger(Long id) {
         return repository.findById(id);
     }
+
+    @Transactional(readOnly = true)
+    public boolean existe(Long id) {
+        return repository.existsById(id);
+    }
+
+    /** Supprime une exécution (les affectations/alertes liées sont supprimées en cascade). */
+    @Transactional
+    public void supprimer(Long id) {
+        repository.deleteById(id);
+    }
 }

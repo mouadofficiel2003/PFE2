@@ -37,6 +37,7 @@ public class SecurityConfig {
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth.requestMatchers("/auth/login").permitAll()
                         .requestMatchers("/auth/me").authenticated()
+                        .requestMatchers("/auth/gestionnaires/**").hasRole("ADMINISTRATEUR")
                         .anyRequest().denyAll())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

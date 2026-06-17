@@ -146,3 +146,23 @@ export async function importCandidatsExcel(file: File): Promise<ImportCandidatsR
 
 }
 
+
+
+export type ReinitialisationCandidatsResult = {
+
+  deleted: number;
+
+};
+
+
+
+/** Vide entièrement la liste des candidats (DELETE /api/candidats). */
+
+export async function reinitialiserCandidats(): Promise<ReinitialisationCandidatsResult> {
+
+  const { data } = await apiClient.delete<ReinitialisationCandidatsResult>("/api/candidats");
+
+  return data;
+
+}
+

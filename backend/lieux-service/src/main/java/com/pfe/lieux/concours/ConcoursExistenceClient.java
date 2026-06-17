@@ -12,6 +12,8 @@ import org.springframework.http.HttpStatus;
 
 import org.springframework.http.HttpStatusCode;
 
+import org.springframework.http.MediaType;
+
 import org.springframework.stereotype.Component;
 
 import org.springframework.web.client.ResourceAccessException;
@@ -149,6 +151,103 @@ public class ConcoursExistenceClient {
     }
 
 
+
+    /**
+     * Ajoute (de façon idempotente) un centre aux affectations d'un concours dans le service concours.
+     * Utilisé quand une salle est rattachée à un concours : le centre apparaît alors dans la liste des concours.
+     */
+    public void ajouterAffectationConcours(
+            String numeroConcours, Long idCentre, String nomCentre, String authorizationHeader) {
+        if (numeroConcours == null || numeroConcours.isBlank() || idCentre == null) {
+            return;
+        }
+        if (authorizationHeader == null
+                || authorizationHeader.isBlank()
+                || !authorizationHeader.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "En-tête Authorization (Bearer) requis pour synchroniser le centre avec le service concours");
+        }
+        try {
+            concoursRestClient
+                    .post()
+                    .uri("/api/concours/{numeroConcours}/affectations", numeroConcours.trim())
+                    .header(HttpHeaders.AUTHORIZATION, authorizationHeader)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new AffectationJson(idCentre, nomCentre))
+                    .retrieve()
+                    .onStatus(
+                            status -> status.value() == 401 || status.value() == 403,
+                            (request, response) -> {
+                                throw new ResponseStatusException(
+                                        HttpStatus.BAD_GATEWAY,
+                                        "Le service concours a refusé l'authentification lors de la synchronisation du centre");
+                            })
+                    .onStatus(
+                            HttpStatusCode::is5xxServerError,
+                            (request, response) -> {
+                                throw new ResponseStatusException(
+                                        HttpStatus.BAD_GATEWAY,
+                                        "Le service concours a renvoyé une erreur lors de la synchronisation du centre");
+                            })
+                    .toBodilessEntity();
+        } catch (ResourceAccessException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Service concours indisponible : " + e.getMessage());
+        }
+    }
+
+    /** Corps JSON envoyé à concours-service (aligné sur CentreAffectationRequest). */
+    private record AffectationJson(Long idCentre, String nomCentre) {}
+
+    /**
+     * Propage le renommage d'un centre vers concours-service : {@code nom_centre} y est dénormalisé,
+     * donc les affectations existantes doivent être mises à jour pour rester cohérentes.
+     */
+    public void renommerCentreDansConcours(Long idCentre, String nouveauNom, String authorizationHeader) {
+        if (idCentre == null || nouveauNom == null || nouveauNom.isBlank()) {
+            return;
+        }
+        if (authorizationHeader == null
+                || authorizationHeader.isBlank()
+                || !authorizationHeader.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "En-tête Authorization (Bearer) requis pour propager le renommage au service concours");
+        }
+        try {
+            concoursRestClient
+                    .patch()
+                    .uri("/api/concours/affectations/centre/{idCentre}", idCentre)
+                    .header(HttpHeaders.AUTHORIZATION, authorizationHeader)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new RenommageJson(nouveauNom))
+                    .retrieve()
+                    .onStatus(
+                            status -> status.value() == 401 || status.value() == 403,
+                            (request, response) -> {
+                                throw new ResponseStatusException(
+                                        HttpStatus.BAD_GATEWAY,
+                                        "Le service concours a refusé l'authentification lors du renommage du centre");
+                            })
+                    .onStatus(
+                            HttpStatusCode::is5xxServerError,
+                            (request, response) -> {
+                                throw new ResponseStatusException(
+                                        HttpStatus.BAD_GATEWAY,
+                                        "Le service concours a renvoyé une erreur lors du renommage du centre");
+                            })
+                    .toBodilessEntity();
+        } catch (ResourceAccessException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Service concours indisponible : " + e.getMessage());
+        }
+    }
+
+    /** Corps JSON du renommage envoyé à concours-service (aligné sur CentreRenommageRequest). */
+    private record RenommageJson(String nomCentre) {}
 
     /** Signale en interne qu'un 404 du service concours doit être traité comme une liste vide. */
 

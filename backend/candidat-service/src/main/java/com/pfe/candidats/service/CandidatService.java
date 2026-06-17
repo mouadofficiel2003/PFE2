@@ -22,6 +22,8 @@ import com.pfe.candidats.web.dto.ImportCandidatsResponse;
 
 import com.pfe.candidats.web.dto.ImportCandidatsResponse.ImportCandidatsError;
 
+import com.pfe.candidats.web.dto.ReinitialisationCandidatsResponse;
+
 import com.pfe.candidats.remote.dto.SalleLieuxHeadJson;
 
 import java.io.IOException;
@@ -169,6 +171,26 @@ public class CandidatService {
         }
 
         candidatRepository.deleteById(numero);
+
+    }
+
+
+
+    /** Vide entièrement la liste des candidats et renvoie le nombre de candidats supprimés. */
+
+    @Transactional
+
+    public ReinitialisationCandidatsResponse reinitialiserListe() {
+
+        long total = candidatRepository.count();
+
+        if (total > 0) {
+
+            candidatRepository.deleteAllInBatch();
+
+        }
+
+        return new ReinitialisationCandidatsResponse(total);
 
     }
 

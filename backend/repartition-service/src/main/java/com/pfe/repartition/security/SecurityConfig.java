@@ -40,8 +40,11 @@ public class SecurityConfig {
                         // Consultation des runs / synthèses : administrateur + gestionnaire.
                         .requestMatchers(HttpMethod.GET, "/api/repartition", "/api/repartition/**")
                         .hasAnyRole("ADMINISTRATEUR", "GESTIONNAIRE")
-                        // Déclenchement de la répartition : réservé au gestionnaire.
+                        // Déclenchement / réinitialisation de la répartition : réservé au gestionnaire.
                         .requestMatchers(HttpMethod.POST, "/api/repartition", "/api/repartition/**")
+                        .hasRole("GESTIONNAIRE")
+                        // Suppression d'une exécution : réservé au gestionnaire.
+                        .requestMatchers(HttpMethod.DELETE, "/api/repartition", "/api/repartition/**")
                         .hasRole("GESTIONNAIRE")
                         .anyRequest()
                         .denyAll())

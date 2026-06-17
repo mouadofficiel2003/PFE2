@@ -14,6 +14,8 @@ import com.pfe.candidats.web.dto.CandidatUpdateRequest;
 
 import com.pfe.candidats.web.dto.ImportCandidatsResponse;
 
+import com.pfe.candidats.web.dto.ReinitialisationCandidatsResponse;
+
 import jakarta.validation.Valid;
 
 import java.util.List;
@@ -115,6 +117,18 @@ public class CandidatController {
     public void supprimer(@PathVariable String numeroInscription) {
 
         candidatService.supprimer(numeroInscription);
+
+    }
+
+
+
+    /** Réinitialise (vide) toute la liste des candidats. */
+
+    @DeleteMapping
+
+    public ReinitialisationCandidatsResponse reinitialiser() {
+
+        return candidatService.reinitialiserListe();
 
     }
 
