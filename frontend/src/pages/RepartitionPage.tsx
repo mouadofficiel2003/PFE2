@@ -129,9 +129,11 @@ export default function RepartitionPage() {
     setActionInfo(null);
     try {
       const result = await reinitialiserRepartition();
+      setDetail(null);
       setActionInfo(
         `Répartition réinitialisée : ${result.candidatsReinitialises} candidat(s) remis à zéro. Vous pouvez relancer une répartition.`,
       );
+      await loadRuns();
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 403) {
         setActionError("Réinitialisation réservée au gestionnaire.");

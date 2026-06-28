@@ -64,6 +64,17 @@ export async function fetchEnvois(): Promise<EnvoiHistorique[]> {
   return data;
 }
 
+export type ReinitialisationEnvoisResult = {
+  supprimes: number;
+};
+
+export async function reinitialiserHistoriqueEnvois(): Promise<ReinitialisationEnvoisResult> {
+  const { data } = await apiClient.post<ReinitialisationEnvoisResult>(
+    "/api/convocations/envois/reinitialiser",
+  );
+  return data;
+}
+
 /** Récupère le PDF d'une convocation (avec JWT) sous forme de Blob. */
 export async function fetchConvocationPdf(numeroInscription: string): Promise<Blob> {
   const { data } = await apiClient.get<Blob>(

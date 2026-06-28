@@ -14,6 +14,17 @@ export type SalleDto = {
   numeroConcours: string | null;
 };
 
+export type SalleAvecLieuxDto = {
+  idSalle: number;
+  nomSalle: string;
+  nombrePlaces: number;
+  numeroConcours: string | null;
+  idEtablissement: number;
+  nomEtablissement: string;
+  idCentre: number;
+  nomCentre: string;
+};
+
 export type EtablissementDetailDto = {
   idEtablissement: number;
   nomEtablissement: string;
@@ -104,4 +115,11 @@ export async function updateSalle(idSalle: number, payload: SalleWritePayload): 
 
 export async function deleteSalle(idSalle: number): Promise<void> {
   await apiClient.delete(`/api/salles/${idSalle}`);
+}
+
+export async function fetchSallesByConcours(numeroConcours: string): Promise<SalleAvecLieuxDto[]> {
+  const { data } = await apiClient.get<SalleAvecLieuxDto[]>("/api/salles", {
+    params: { numeroConcours },
+  });
+  return data;
 }

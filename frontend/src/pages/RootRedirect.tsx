@@ -8,7 +8,7 @@ export default function RootRedirect() {
     return <AuthLoadingScreen />;
   }
   if (state.status === "authenticated") {
-    return <Navigate to="/candidats" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
   return <Navigate to="/login" replace />;
 }

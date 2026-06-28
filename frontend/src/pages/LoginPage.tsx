@@ -9,7 +9,7 @@ export default function LoginPage() {
   const { state, login } = useAuth();
   const location = useLocation();
   const from = (location.state as LocationState)?.from;
-  const redirectTo = from && from !== "/login" ? from : "/candidats";
+  const redirectTo = from && from !== "/login" ? from : "/dashboard";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);

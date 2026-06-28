@@ -5,6 +5,7 @@ import {
   fetchConvocations,
   fetchConvocationPdf,
   fetchEnvois,
+  reinitialiserHistoriqueEnvois,
   type Convocation,
   type EnvoiHistorique,
   type EnvoiResult,
@@ -35,6 +36,7 @@ export default function ConvocationsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionInfo, setActionInfo] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [resettingHistorique, setResettingHistorique] = useState(false);
   const [pdfBusy, setPdfBusy] = useState<string | null>(null);
   const [result, setResult] = useState<EnvoiResult | null>(null);
 
@@ -113,6 +115,43 @@ export default function ConvocationsPage() {
       }
     } finally {
       setSending(false);
+    }
+  }
+
+  async function handleReinitialiserHistorique() {
+    const total = envois?.length ?? 0;
+    if (
+      !window.confirm(
+        total > 0
+          ? `Supprimer l'historique des envois ? Les ${total} trace(s) d'envoi seront définitivement effacées.`
+          : "Supprimer l'historique des envois ? Cette action est définitive.",
+      )
+    ) {
+      return;
+    }
+    setResettingHistorique(true);
+    setActionError(null);
+    setActionInfo(null);
+    try {
+      const res = await reinitialiserHistoriqueEnvois();
+      setEnvois([]);
+      setActionInfo(
+        res.supprimes > 0
+          ? `Historique réinitialisé : ${res.supprimes} trace(s) d'envoi supprimée(s).`
+          : "L'historique des envois était déjà vide.",
+      );
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 403) {
+        setActionError("Réinitialisation réservée au gestionnaire.");
+      } else if (axios.isAxiosError(err) && err.code === "ECONNABORTED") {
+        setActionError("Délai dépassé pendant la réinitialisation. Réessayez dans un instant.");
+      } else {
+        setActionError(
+          err instanceof Error ? err.message : "Échec de la réinitialisation de l'historique.",
+        );
+      }
+    } finally {
+      setResettingHistorique(false);
     }
   }
 
@@ -250,41 +289,65 @@ export default function ConvocationsPage() {
           ) : null}
         </section>
 
-        {!loading && !error && envois && envois.length > 0 ? (
+        {!loading && !error ? (
           <section style={section}>
-            <h2 style={h2Inline}>Historique des envois</h2>
-            <div style={tableWrap}>
-              <table style={table}>
-                <thead>
-                  <tr>
-                    <th style={th}>Date</th>
-                    <th style={th}>Candidat</th>
-                    <th style={th}>E-mail</th>
-                    <th style={th}>Concours</th>
-                    <th style={th}>Statut</th>
-                    <th style={th}>Détail</th>
-                    <th style={th}>Par</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {envois.map((e) => (
-                    <tr key={e.id}>
-                      <td style={td}>{formatDateHeure(e.envoyeLe)}</td>
-                      <td style={td}>{e.candidatNom || e.numeroInscription}</td>
-                      <td style={td}>{e.email || "—"}</td>
-                      <td style={td}>{e.nomConcours || "—"}</td>
-                      <td style={td}>
-                        <span style={statutBadgeStyle(e.statut)}>
-                          {e.statut === "ENVOYE" ? "Envoyé" : "Échec"}
-                        </span>
-                      </td>
-                      <td style={td}>{e.message || "—"}</td>
-                      <td style={td}>{e.declenchePar || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={toolbar}>
+              <h2 style={h2Inline}>
+                Historique des envois{envois ? ` (${envois.length})` : ""}
+              </h2>
+              {!readOnly ? (
+                <div style={toolbarActions}>
+                  <button
+                    type="button"
+                    style={btnReset}
+                    onClick={() => void handleReinitialiserHistorique()}
+                    disabled={resettingHistorique || sending || (envois?.length ?? 0) === 0}
+                    title="Supprimer tout l'historique des envois de convocations"
+                  >
+                    {resettingHistorique
+                      ? "Suppression…"
+                      : "Réinitialiser l'historique des envois"}
+                  </button>
+                </div>
+              ) : null}
             </div>
+
+            {envois && envois.length > 0 ? (
+              <div style={tableWrap}>
+                <table style={table}>
+                  <thead>
+                    <tr>
+                      <th style={th}>Date</th>
+                      <th style={th}>Candidat</th>
+                      <th style={th}>E-mail</th>
+                      <th style={th}>Concours</th>
+                      <th style={th}>Statut</th>
+                      <th style={th}>Détail</th>
+                      <th style={th}>Par</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {envois.map((e) => (
+                      <tr key={e.id}>
+                        <td style={td}>{formatDateHeure(e.envoyeLe)}</td>
+                        <td style={td}>{e.candidatNom || e.numeroInscription}</td>
+                        <td style={td}>{e.email || "—"}</td>
+                        <td style={td}>{e.nomConcours || "—"}</td>
+                        <td style={td}>
+                          <span style={statutBadgeStyle(e.statut)}>
+                            {e.statut === "ENVOYE" ? "Envoyé" : "Échec"}
+                          </span>
+                        </td>
+                        <td style={td}>{e.message || "—"}</td>
+                        <td style={td}>{e.declenchePar || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p style={muted}>Aucun envoi enregistré pour le moment.</p>
+            )}
           </section>
         ) : null}
 
@@ -388,6 +451,17 @@ const btnPrimary: CSSProperties = {
   border: "none",
   background: "#2563eb",
   color: "#fff",
+  cursor: "pointer",
+  fontWeight: 600,
+  fontSize: "0.875rem",
+};
+
+const btnReset: CSSProperties = {
+  padding: "0.5rem 1rem",
+  borderRadius: "8px",
+  border: "1px solid #fecaca",
+  background: "#fef2f2",
+  color: "#b91c1c",
   cursor: "pointer",
   fontWeight: 600,
   fontSize: "0.875rem",

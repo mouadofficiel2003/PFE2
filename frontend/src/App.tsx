@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { RequireAuth } from "./auth/RequireAuth";
 import CandidatsPage from "./pages/CandidatsPage";
+import DashboardPage from "./pages/DashboardPage";
 import ConcoursPage from "./pages/ConcoursPage";
 import ConvocationsPage from "./pages/ConvocationsPage";
 import GestionnairesPage from "./pages/GestionnairesPage";
@@ -17,6 +18,14 @@ export default function App() {
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth>
+                <DashboardPage />
+              </RequireAuth>
+            }
+          />
           <Route
             path="/candidats"
             element={

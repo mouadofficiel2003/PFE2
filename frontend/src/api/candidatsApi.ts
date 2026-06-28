@@ -42,7 +42,10 @@ export type CandidatDto = {
 
 };
 
-
+/** Affectation complète (centre, établissement, salle et place) — même règle que convocation-service. */
+export function isCandidatAffecte(c: CandidatDto): boolean {
+  return c.idCentre != null && c.idEtablissement != null && c.idSalle != null && c.numeroPlace != null;
+}
 
 export type CandidatUpdatePayload = {
 

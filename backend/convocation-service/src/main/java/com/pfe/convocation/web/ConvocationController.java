@@ -4,6 +4,7 @@ import com.pfe.convocation.service.ConvocationService;
 import com.pfe.convocation.web.dto.ConvocationResponse;
 import com.pfe.convocation.web.dto.EnvoiHistoriqueResponse;
 import com.pfe.convocation.web.dto.EnvoiResponse;
+import com.pfe.convocation.web.dto.ReinitialisationEnvoisResponse;
 import java.util.List;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -54,5 +55,11 @@ public class ConvocationController {
     @GetMapping("/envois")
     public List<EnvoiHistoriqueResponse> historique() {
         return convocationService.listerHistorique();
+    }
+
+    /** Supprime tout l'historique des envois de convocations. */
+    @PostMapping("/envois/reinitialiser")
+    public ReinitialisationEnvoisResponse reinitialiserHistorique() {
+        return convocationService.reinitialiserHistorique();
     }
 }

@@ -6,6 +6,7 @@ import Brand from "./Brand";
 type NavItem = { to: string; label: string };
 
 const BASE_NAV: NavItem[] = [
+  { to: "/dashboard", label: "Tableau de bord" },
   { to: "/candidats", label: "Candidats" },
   { to: "/concours", label: "Concours" },
   { to: "/lieux", label: "Lieux" },

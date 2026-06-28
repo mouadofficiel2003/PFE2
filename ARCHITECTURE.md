@@ -3,6 +3,8 @@
 > Reference document describing the full architecture of the PFE platform
 > (exam/competition management). Intended as onboarding context for developers
 > and AI agents working on this codebase.
+>
+> Last reviewed: **2026-06-25** — backend tests and frontend build verified OK.
 
 ## Overview
 
@@ -57,6 +59,8 @@ header is forwarded unchanged, so each downstream service validates the JWT itse
 The gateway also applies a `DedupeResponseHeader` filter on CORS headers, because
 downstream services also emit CORS headers and duplicate values would break browsers.
 
+Actuator endpoints exposed on the gateway: `/actuator/health`, `/actuator/info`, `/actuator/gateway`.
+
 ## Shared identifiers (logical references)
 
 Because each service owns its own database, cross-service relationships use
@@ -64,8 +68,8 @@ Because each service owns its own database, cross-service relationships use
 
 | Concept     | Canonical key           | Owner service   | Referenced by                                      |
 | ----------- | ----------------------- | --------------- | -------------------------------------------------- |
-| Candidat    | `numero_inscription`    | candidat        | repartition (history)                              |
-| Concours    | `numero_concours`       | concours        | candidat, lieux (`salle.numero_concours`), repartition |
+| Candidat    | `numero_inscription`    | candidat        | repartition (history), convocation (send log)      |
+| Concours    | `numero_concours`       | concours        | candidat, lieux (`salle.numero_concours`), repartition, convocation |
 | Centre      | `id_centre`             | lieux           | concours (`concours_affectation_centre`), candidat (affectation) |
 | Établissement | `id_etablissement`    | lieux           | candidat (affectation), repartition (history)      |
 | Salle       | `id_salle`              | lieux           | candidat (affectation), repartition (history)      |
@@ -111,6 +115,7 @@ Key schema notes:
 - `concours_affectation_centre.id_centre` is a required logical reference to `lieux.centre.id_centre`.
 - `salle.numero_concours` is an optional logical reference to `concours.numero_concours`.
 - `repartition_run.message` stores failure reasons when a run ends with status `ECHEC`.
+- `convocation_envoi` stores send attempts only — convocation content is **derived** at read time.
 
 Local default credentials: `postgres` / `postgres` on `localhost:5432`. These are **dev-only
 defaults**: each service reads `spring.datasource.url`, `spring.datasource.username` and
@@ -121,6 +126,37 @@ defaults**: each service reads `spring.datasource.url`, `spring.datasource.usern
 Default seeded accounts (change in production): `admin / Admin123!` and
 `gestionnaire / Gest123!`.
 
+## Frontend architecture
+
+The SPA lives in `frontend/` and talks to the backend exclusively through relative URLs
+that hit the Vite dev proxy (or a production reverse proxy pointed at the gateway).
+
+```
+frontend/src/
+├── api/              # Axios clients per domain (candidats, concours, lieux, repartition, convocations)
+├── auth/             # AuthContext, RequireAuth, token storage, session restore via GET /auth/me
+├── components/       # AppHeader (nav + role badge), Brand, shared UI
+└── pages/            # One page per business area (Candidats, Concours, Lieux, Repartition, Convocations, Gestionnaires)
+```
+
+Routing (`App.tsx`):
+
+| Route            | Component          | Notes |
+| ---------------- | ------------------ | ----- |
+| `/`              | `RootRedirect`     | → `/candidats` if authenticated, else `/login` |
+| `/login`         | `LoginPage`        | Public |
+| `/candidats` … `/convocations` | Business pages | Wrapped in `RequireAuth` |
+| `/gestionnaires` | `GestionnairesPage`| Extra guard: `ADMINISTRATEUR` only |
+
+**Role-aware UI**: each business page checks `user.role === "ADMINISTRATEUR"` and hides
+write actions (create, edit, delete, import, run repartition, send convocations).
+`AppHeader` shows a « lecture seule » badge for administrators and adds the
+« Gestionnaires » nav item only for that role. Backend authorization remains authoritative;
+the UI is a convenience layer.
+
+On `401` from any protected API call, the axios interceptor dispatches `auth:unauthorized`,
+which clears the token and returns the user to an anonymous state.
+
 ## How the services communicate
 
 ### 1. Frontend → gateway → backend
@@ -130,7 +166,7 @@ known prefix to a **single target, the API gateway** (`http://localhost:8080`,
 overridable via `VITE_GATEWAY_ORIGIN`):
 
 - `/auth`, `/api/candidats`, `/api/concours`, `/api/centres`,
-  `/api/etablissements`, `/api/salles`, `/api/repartition` → api-gateway (8080)
+  `/api/etablissements`, `/api/salles`, `/api/repartition`, `/api/convocations` → api-gateway (8080)
 
 The gateway dispatches each prefix to the owning service (see routing table above).
 In production, point the SPA or reverse proxy at the gateway directly and drop the
@@ -154,14 +190,14 @@ Each resource service has its own `JwtAuthenticationFilter` that parses the toke
 reads the `role` claim, and sets a Spring Security authority `ROLE_<role>`.
 Authorization is role-based per HTTP method:
 
-| Role             | Read (`GET`) | Write (`POST`/`PUT`/`PATCH`/`DELETE`) | Repartition run |
-| ---------------- | ------------ | --------------------------------------- | --------------- |
-| `ADMINISTRATEUR` | yes          | no (business resources)                 | no              |
-| `GESTIONNAIRE`   | yes          | yes                                     | yes             |
+| Role             | Read (`GET`) | Write (`POST`/`PUT`/`PATCH`/`DELETE`) | Repartition run / reset | Convocation send |
+| ---------------- | ------------ | --------------------------------------- | ----------------------- | ---------------- |
+| `ADMINISTRATEUR` | yes          | no (business resources)                 | no                      | no               |
+| `GESTIONNAIRE`   | yes          | yes                                     | yes                     | yes              |
 
 `ADMINISTRATEUR` is read-only on the **business** resources (candidat, concours, lieux,
-repartition) but is the **only** role allowed to manage gestionnaire accounts via
-`/auth/gestionnaires/**` on auth-service (create/update/delete gestionnaires).
+repartition, convocations preview) but is the **only** role allowed to manage gestionnaire
+accounts via `/auth/gestionnaires/**` on auth-service (create/update/delete gestionnaires).
 
 All services are stateless (`SessionCreationPolicy.STATELESS`). CORS allows
 `http://localhost:5173` on both the gateway and each service (gateway dedupes headers).
@@ -220,6 +256,8 @@ On `POST /api/repartition/run` (gestionnaire only):
 4. Computes the plan in memory (`RepartitionPlanner`).
 5. `PATCH /api/candidats/affectations` — writes centre/établissement/salle/place on each candidate.
 6. Persists run summary + per-candidate affectations + alerts in `data_repartition`.
+
+`POST /api/repartition/reset` clears every candidate's seat assignment without running the planner.
 
 Query history later via `GET /api/repartition/runs` and `GET /api/repartition/runs/{id}`.
 
@@ -433,6 +471,16 @@ When seeding data manually (or via `scripts/seed-demo-data.ps1`):
 6. **Convocations** (convocation-service) — preview at `/convocations`, then bulk-send with
    `POST /api/convocations/envoyer` (requires Gmail `MAIL_USERNAME` / `MAIL_PASSWORD`).
 
+## UML diagrams
+
+Twelve PlantUML source files live at the repository root (`diagramme-*.puml`), covering
+use cases, class models, and sequence flows (auth, candidats, concours, lieux, repartition,
+convocations). PNG exports are not committed; generate them with:
+
+```powershell
+node scripts/plantuml-png.mjs diagramme-cas-utilisation-general.puml diagramme-cas-utilisation-general.png
+```
+
 ## Tech stack
 
 - **Backend**: Spring Boot 3.4.4, Spring Cloud Gateway (Spring Cloud 2024.0.1),
@@ -441,6 +489,22 @@ When seeding data manually (or via `scripts/seed-demo-data.ps1`):
   convocation-service), jjwt 0.12.6, Java 17, Maven (multi-module).
 - **Frontend**: React 19, TypeScript, Vite 6, axios, react-router-dom 6.
 - **Database**: PostgreSQL 14+ (candidat trigger uses `EXECUTE FUNCTION`).
+
+## Testing
+
+Backend tests (run from `backend/` with `.\mvnw.cmd test`):
+
+| Module              | Test focus |
+| ------------------- | ---------- |
+| candidat-service    | Concours resolution on import/update |
+| concours-service    | Lieux validation, HTTP client, controller security |
+| lieux-service       | Concours existence client |
+| repartition-service | Allocation planner, Moroccan geo referential, distance edge cases |
+
+Frontend: `npm run build` runs TypeScript checking and the production bundle.
+
+There are no end-to-end or integration tests that spin up all services together;
+local verification relies on manual flows or the demo seed script.
 
 ## Key design choices & trade-offs
 
@@ -475,5 +539,5 @@ When seeding data manually (or via `scripts/seed-demo-data.ps1`):
 | `frontend/`      | React + TypeScript (Vite) single-page app                         |
 | `database/`      | Flyway migration documentation (scripts live in each service)     |
 | `scripts/`       | Demo seed script, PlantUML PNG generator, sample JSON bodies      |
-| `*.puml` / `*.png` | UML diagrams (use cases, classes, sequences)                  |
+| `diagramme-*.puml` | UML diagrams (use cases, classes, sequences)                    |
 | `verify-env.ps1` | Dev environment checker (Java, Maven, Node, PostgreSQL)           |

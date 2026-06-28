@@ -236,7 +236,7 @@ export default function ConcoursPage() {
               <table style={table}>
                 <thead>
                   <tr>
-                    <th style={th}>Numéro</th>
+                    <th style={th}>#</th>
                     <th style={th}>Nom</th>
                     <th style={th}>N° concours</th>
                     <th style={th}>Date / heure</th>
@@ -245,9 +245,9 @@ export default function ConcoursPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {list.map((c) => (
+                  {list.map((c, index) => (
                     <tr key={c.numeroConcours}>
-                      <td style={td}>{c.numeroConcours}</td>
+                      <td style={td}>{index + 1}</td>
                       <td style={td}>{c.nomConcours}</td>
                       <td style={td}>{c.numeroConcours ?? "—"}</td>
                       <td style={td}>{new Date(c.dateHeureExamen).toLocaleString()}</td>

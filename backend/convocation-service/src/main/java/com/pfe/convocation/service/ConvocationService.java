@@ -8,9 +8,14 @@ import com.pfe.convocation.web.dto.ConvocationResponse;
 import com.pfe.convocation.web.dto.EnvoiDetailResponse;
 import com.pfe.convocation.web.dto.EnvoiHistoriqueResponse;
 import com.pfe.convocation.web.dto.EnvoiResponse;
+import com.pfe.convocation.web.dto.ReinitialisationEnvoisResponse;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,16 +32,19 @@ public class ConvocationService {
     private final ConvocationPdfGenerator pdfGenerator;
     private final ConvocationMailSender mailSender;
     private final ConvocationEnvoiRepository envoiRepository;
+    private final ExecutorService envoiExecutor;
 
     public ConvocationService(
             ConvocationAssembler assembler,
             ConvocationPdfGenerator pdfGenerator,
             ConvocationMailSender mailSender,
-            ConvocationEnvoiRepository envoiRepository) {
+            ConvocationEnvoiRepository envoiRepository,
+            @Qualifier("convocationEnvoiExecutor") ExecutorService envoiExecutor) {
         this.assembler = assembler;
         this.pdfGenerator = pdfGenerator;
         this.mailSender = mailSender;
         this.envoiRepository = envoiRepository;
+        this.envoiExecutor = envoiExecutor;
     }
 
     /** Aperçu de toutes les convocations prêtes (candidats affectés). */
@@ -82,39 +90,54 @@ public class ConvocationService {
         }
 
         Instant lanceLe = Instant.now();
-        int envoyes = 0;
-        List<EnvoiDetailResponse> details = new ArrayList<>();
-        List<ConvocationEnvoi> traces = new ArrayList<>();
 
-        for (ConvocationData data : convocations) {
-            EnvoiStatut statut;
-            String message;
-            try {
-                if (data.email() == null || data.email().isBlank()) {
-                    throw new IllegalStateException("Adresse e-mail manquante pour le candidat.");
-                }
-                byte[] pdf = pdfGenerator.genererPdf(data);
-                mailSender.envoyer(
-                        data.email(), sujet(data), corps(data), pdf, nomFichier(data));
-                statut = EnvoiStatut.ENVOYE;
-                message = null;
+        List<CompletableFuture<EnvoiCandidatResult>> futures = convocations.stream()
+                .map(data -> CompletableFuture.supplyAsync(() -> envoyerUn(data), envoiExecutor))
+                .toList();
+        CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
+
+        List<EnvoiCandidatResult> results = futures.stream()
+                .map(CompletableFuture::join)
+                .sorted(Comparator.comparing(
+                        r -> r.data().numeroInscription(), String.CASE_INSENSITIVE_ORDER))
+                .toList();
+
+        int envoyes = 0;
+        List<EnvoiDetailResponse> details = new ArrayList<>(results.size());
+        List<ConvocationEnvoi> traces = new ArrayList<>(results.size());
+        for (EnvoiCandidatResult result : results) {
+            if (result.statut() == EnvoiStatut.ENVOYE) {
                 envoyes++;
-            } catch (Exception e) {
-                statut = EnvoiStatut.ECHEC;
-                message = resumeErreur(e);
             }
-            traces.add(toEnvoi(data, statut, message, user, lanceLe));
+            ConvocationData data = result.data();
+            traces.add(toEnvoi(data, result.statut(), result.message(), user, lanceLe));
             details.add(new EnvoiDetailResponse(
                     data.numeroInscription(),
                     data.nomComplet(),
                     data.email(),
-                    statut.name(),
-                    message));
+                    result.statut().name(),
+                    result.message()));
         }
 
         envoiRepository.saveAll(traces);
         return new EnvoiResponse(convocations.size(), envoyes, convocations.size() - envoyes, lanceLe, details);
     }
+
+    /** Génère le PDF et envoie un e-mail pour un candidat (appelé en parallèle). */
+    private EnvoiCandidatResult envoyerUn(ConvocationData data) {
+        try {
+            if (data.email() == null || data.email().isBlank()) {
+                throw new IllegalStateException("Adresse e-mail manquante pour le candidat.");
+            }
+            byte[] pdf = pdfGenerator.genererPdf(data);
+            mailSender.envoyer(data.email(), sujet(data), corps(data), pdf, nomFichier(data));
+            return new EnvoiCandidatResult(data, EnvoiStatut.ENVOYE, null);
+        } catch (Exception e) {
+            return new EnvoiCandidatResult(data, EnvoiStatut.ECHEC, resumeErreur(e));
+        }
+    }
+
+    private record EnvoiCandidatResult(ConvocationData data, EnvoiStatut statut, String message) {}
 
     /** Historique des envois (du plus récent au plus ancien). */
     @Transactional(readOnly = true)
@@ -122,6 +145,14 @@ public class ConvocationService {
         return envoiRepository.findAllByOrderByEnvoyeLeDesc().stream()
                 .map(ConvocationService::toHistorique)
                 .toList();
+    }
+
+    /** Supprime tout l'historique des envois de convocations. */
+    @Transactional
+    public ReinitialisationEnvoisResponse reinitialiserHistorique() {
+        long count = envoiRepository.count();
+        envoiRepository.deleteAll();
+        return new ReinitialisationEnvoisResponse(count);
     }
 
     private static String sujet(ConvocationData data) {

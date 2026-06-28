@@ -4,6 +4,7 @@ import {
   deleteCandidat,
   fetchCandidats,
   importCandidatsExcel,
+  isCandidatAffecte,
   reinitialiserCandidats,
   updateCandidat,
   type CandidatDto,
@@ -425,11 +426,7 @@ export default function CandidatsPage() {
                 {candidats.map((c) => {
                   const initials =
                     `${(c.prenom?.[0] ?? "").toUpperCase()}${(c.nom?.[0] ?? "").toUpperCase()}` || "?";
-                  const affecte =
-                    c.idCentre != null ||
-                    c.idEtablissement != null ||
-                    c.idSalle != null ||
-                    c.numeroPlace != null;
+                  const affecte = isCandidatAffecte(c);
                   return (
                     <article key={c.numeroInscription} style={candidateCard}>
                       <div style={cardTop}>

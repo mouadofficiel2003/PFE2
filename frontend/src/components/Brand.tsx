@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import type { CSSProperties } from "react";
 
 type BrandProps = {
-  /** When false, renders as a plain span instead of a link to /candidats. */
+  /** When false, renders as a plain span instead of a link to /dashboard. */
   asLink?: boolean;
   /** Visual size of the logo. */
   size?: "md" | "lg";
@@ -27,7 +27,7 @@ export default function Brand({ asLink = true, size = "md" }: BrandProps) {
   }
 
   return (
-    <Link to="/candidats" style={{ ...root, textDecoration: "none" }} aria-label="CandidatPlus — accueil">
+    <Link to="/dashboard" style={{ ...root, textDecoration: "none" }} aria-label="CandidatPlus — accueil">
       {content}
     </Link>
   );

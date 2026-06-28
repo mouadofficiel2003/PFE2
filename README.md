@@ -14,6 +14,28 @@ authentification JWT.
 > Pour la description détaillée de l'architecture (flux, communication inter-services,
 > règles de répartition, schémas, API), voir [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
+## État du projet
+
+Revu le **25 juin 2026** — le dépôt est cohérent et prêt pour le développement local :
+
+| Vérification | Résultat |
+|--------------|----------|
+| Modules Maven (gateway + 6 services) | 7 modules alignés dans `backend/pom.xml` |
+| Tests backend (`.\mvnw.cmd test`) | OK — 8 classes de tests (candidat, concours, lieux, repartition) |
+| Build frontend (`npm run build`) | OK — TypeScript + bundle Vite |
+| Routage gateway ↔ services | Préfixes documentés = `application.yml` |
+| Migrations Flyway | 9 scripts répartis sur les 6 services |
+| TODO / FIXME dans le code | Aucun repéré |
+
+Points d'attention (non bloquants) :
+
+- Les diagrammes UML sont fournis en **sources PlantUML** (`.puml`) ; les PNG ne sont
+  pas versionnés — génération optionnelle via `scripts/plantuml-png.mjs`.
+- L'envoi de convocations nécessite `MAIL_USERNAME` / `MAIL_PASSWORD` (Gmail) ;
+  sans cela le service démarre mais renvoie `503` à l'envoi.
+- La répartition n'est **pas atomique** : un échec après l'écriture des affectations
+  peut laisser des candidats mis à jour sans run complet (voir ARCHITECTURE.md).
+
 ## Structure du projet
 
 | Dossier / fichier | Description |
@@ -21,10 +43,10 @@ authentification JWT.
 | `backend/` | API Gateway + microservices Spring Boot (auth, candidat, concours, lieux, repartition, convocation) |
 | `frontend/` | Interface React + TypeScript (Vite) |
 | `database/` | Documentation des migrations Flyway (scripts dans chaque service) |
-| `scripts/` | Scripts utilitaires (seed de démo, génération de diagrammes PlantUML) |
-| `ARCHITECTURE.md` | Document de référence de l'architecture |
+| `scripts/` | Scripts utilitaires (seed de démo, génération PNG PlantUML, corps JSON d'exemple) |
+| `ARCHITECTURE.md` | Document de référence de l'architecture (en anglais) |
 | `verify-env.ps1` | Vérification de l'environnement de développement (Java, Maven, Node, PostgreSQL) |
-| `*.puml` / `*.png` | Diagrammes UML (cas d'utilisation, classes, séquences) |
+| `diagramme-*.puml` | Diagrammes UML (cas d'utilisation, classes, séquences) |
 
 ## Prérequis
 
@@ -56,7 +78,7 @@ Vérifier l'environnement :
 Le front (via le proxy Vite) appelle la gateway sur `8080`, qui route par préfixe.
 L'en-tête `Authorization: Bearer <jwt>` est transmis tel quel ; chaque service valide le JWT lui-même.
 
-| Préfixe de chemin | Service cible |
+  in | Service cible |
 |-------------------|---------------|
 | `/auth/**` | auth-service (8081) |
 | `/api/candidats/**` | candidat-service (8082) |
@@ -67,6 +89,8 @@ L'en-tête `Authorization: Bearer <jwt>` est transmis tel quel ; chaque service 
 
 Les appels **inter-services** (validation croisée, répartition, assemblage des convocations)
 passent directement entre services (`RestClient` sur les ports 8081–8086), pas par la gateway.
+
+La gateway expose aussi les endpoints Actuator : `/actuator/health`, `/actuator/info`, `/actuator/gateway`.
 
 ## Démarrage
 
@@ -144,7 +168,7 @@ inter-services fonctionne. Le secret HS256 doit faire **au moins 32 octets UTF-8
 
 ```powershell
 cd frontend
-Copy-Item .env.example .env
+Copy-Item .env.example .env.development.local
 npm install
 npm run dev
 ```
@@ -176,6 +200,9 @@ sur leurs ports (8081, 8083, 8084), pas via la gateway.
 5. Répartition automatique (`POST /api/repartition/run`, rôle gestionnaire)
 6. Convocations : aperçu et envoi par e-mail (`POST /api/convocations/envoyer`, rôle gestionnaire)
 
+Pour réinitialiser les affectations sans relancer la répartition :
+`POST /api/repartition/reset` (gestionnaire).
+
 ## Comptes par défaut
 
 Créés par la migration Flyway de l'auth-service (**à changer en production**) :
@@ -187,19 +214,23 @@ Créés par la migration Flyway de l'auth-service (**à changer en production**)
 
 - **ADMINISTRATEUR** : lecture seule sur les ressources métier, mais **seul** rôle
   habilité à gérer les comptes gestionnaires (`/auth/gestionnaires`, page `/gestionnaires`).
-- **GESTIONNAIRE** : lecture + écriture + déclenchement de la répartition.
+- **GESTIONNAIRE** : lecture + écriture + déclenchement de la répartition et de l'envoi des convocations.
 
 ## Pages du frontend
 
 | Route | Page | Accès |
 |-------|------|-------|
+| `/` | Redirection vers `/candidats` ou `/login` | Public / authentifié |
 | `/login` | Connexion | Public |
 | `/candidats` | Gestion des candidats | Authentifié |
 | `/concours` | Gestion des concours | Authentifié |
 | `/lieux` | Centres / établissements / salles | Authentifié |
-| `/repartition` | Répartition automatique | Authentifié |
+| `/repartition` | Répartition automatique + historique | Authentifié (run/reset : GESTIONNAIRE) |
 | `/convocations` | Convocations PDF + envoi e-mail | Authentifié (envoi : GESTIONNAIRE) |
 | `/gestionnaires` | Gestion des comptes gestionnaires | Authentifié (ADMINISTRATEUR) |
+
+L'interface masque les actions d'écriture pour le rôle **ADMINISTRATEUR** (badge « lecture seule »
+dans l'en-tête). La page `/gestionnaires` n'apparaît que pour les administrateurs.
 
 ## Identifiants partagés entre services
 
@@ -212,6 +243,31 @@ des **clés métier** validées par HTTP à l'écriture :
 | Concours | `numero_concours` | concours-service |
 | Centre / établissement / salle | `id_centre`, `id_etablissement`, `id_salle` | lieux-service |
 
+## Diagrammes UML
+
+Sources PlantUML à la racine du dépôt :
+
+| Fichier | Contenu |
+|---------|---------|
+| `diagramme-cas-utilisation-general.puml` | Cas d'utilisation globaux |
+| `diagramme-classe-general.puml` | Modèle de classes général |
+| `diagramme-classe-gestionnaire-candidats.puml` | Classes — gestion candidats |
+| `diagramme-sequence-authentification.puml` | Séquence — authentification |
+| `diagramme-sequence-gestion-candidatures.puml` | Séquence — candidatures |
+| `diagramme-sequence-gestion-concours.puml` | Séquence — concours |
+| `diagramme-sequence-gestion-centres.puml` | Séquence — centres |
+| `diagramme-sequence-gestion-etablissements.puml` | Séquence — établissements |
+| `diagramme-sequence-gestion-salles.puml` | Séquence — salles |
+| `diagramme-sequence-centres-etablissements-salles.puml` | Séquence — lieux (vue combinée) |
+| `diagramme-sequence-repartition-automatique.puml` | Séquence — répartition |
+| `diagramme-sequence-gestion-convocations.puml` | Séquence — convocations |
+
+Générer un PNG (nécessite Node.js et accès réseau vers le serveur PlantUML public) :
+
+```powershell
+node scripts/plantuml-png.mjs diagramme-cas-utilisation-general.puml diagramme-cas-utilisation-general.png
+```
+
 ## Tests et build
 
 ```powershell
@@ -221,6 +277,13 @@ des **clés métier** validées par HTTP à l'écriture :
 # Frontend (depuis frontend/)
 npm run build
 ```
+
+Couverture de tests backend (unitaires / slice) :
+
+- **candidat-service** — résolution concours (`CandidatConcoursResolverTest`)
+- **concours-service** — validation lieux, client HTTP, contrôleur WebMvc
+- **lieux-service** — client existence concours
+- **repartition-service** — algorithme (`RepartitionPlannerTest`), géo (`ReferentielRegionsMarocTest`, `DistanceSidiIfniTest`)
 
 ## Stack technique
 
