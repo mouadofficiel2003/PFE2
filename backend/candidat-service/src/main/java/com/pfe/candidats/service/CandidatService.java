@@ -306,6 +306,8 @@ public class CandidatService {
 
         List<ImportCandidatsError> errors = new ArrayList<>();
 
+        CandidatConcoursResolver.ConcoursCatalog concoursCatalog = candidatConcoursResolver.loadCatalog();
+
         for (SheetRow sr : rows) {
 
             Optional<String> validation = validerLigne(sr.data());
@@ -338,6 +340,24 @@ public class CandidatService {
 
             }
 
+            ResolvedConcours concours;
+
+            try {
+
+                concours = concoursCatalog.resolveImport(d.nomConcours(), d.numeroConcours());
+
+            } catch (ResponseStatusException ex) {
+
+                String msg = ex.getReason() != null ? ex.getReason() : "Concours invalide";
+
+                errors.add(new ImportCandidatsError(sr.rowNumber(), msg));
+
+                skipped++;
+
+                continue;
+
+            }
+
             String cin = d.cin().trim();
 
             Optional<Candidat> exist = candidatRepository.findByCin(cin);
@@ -346,7 +366,7 @@ public class CandidatService {
 
                 if (exist.isPresent()) {
 
-                    appliquerImport(exist.get(), d, age, false);
+                    appliquerImport(exist.get(), d, age, false, concours);
 
                     candidatRepository.save(exist.get());
 
@@ -362,7 +382,7 @@ public class CandidatService {
 
                     c.setModifieLe(now);
 
-                    appliquerImport(c, d, age, true);
+                    appliquerImport(c, d, age, true, concours);
 
                     candidatRepository.save(c);
 
@@ -386,7 +406,7 @@ public class CandidatService {
 
 
 
-    private void appliquerImport(Candidat c, ParsedRow d, short age, boolean nouveau) {
+    private void appliquerImport(Candidat c, ParsedRow d, short age, boolean nouveau, ResolvedConcours concours) {
 
         c.setNom(truncate(d.nom().trim(), 120));
 
@@ -406,9 +426,9 @@ public class CandidatService {
 
         c.setNumeroInscription(truncate(d.numeroInscription().trim(), 80));
 
-        c.setNomConcours(truncate(d.nomConcours().trim(), 200));
+        c.setNomConcours(truncate(concours.nomConcours(), 200));
 
-        c.setNumeroConcours(emptyToNull(truncate(d.numeroConcours().trim(), 80)));
+        c.setNumeroConcours(truncate(concours.numeroConcours(), 80));
 
         if (nouveau) {
 

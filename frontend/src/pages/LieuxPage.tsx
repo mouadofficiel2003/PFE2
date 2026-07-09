@@ -1,5 +1,6 @@
 import axios from "axios";
-import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { fetchConcours, type ConcoursDto } from "../api/concoursApi";
 import {
   createCentre,
@@ -26,12 +27,130 @@ type ModalKind = "centre" | "etablissement" | "salle" | null;
 function concoursLabel(numero: string | null, concours: ConcoursDto[]): string {
   if (numero == null || numero === "") return "—";
   const c = concours.find((x) => x.numeroConcours === numero);
-  return c ? `${c.nomConcours} (${numero})` : numero;
+  return c ? c.nomConcours : numero;
 }
 
-function formatConcoursNumeros(numeros: string[], concours: ConcoursDto[]): string {
-  if (!numeros.length) return "—";
-  return numeros.map((num) => concoursLabel(num, concours)).join(", ");
+function KpiCard({ label, value, hint, accent }: { label: string; value: number; hint: string; accent: string }) {
+  return (
+    <div style={kpiCard}>
+      <div style={{ ...kpiAccent, background: accent }} aria-hidden="true" />
+      <span style={kpiValue}>{value.toLocaleString("fr-FR")}</span>
+      <span style={kpiLabel}>{label}</span>
+      <span style={kpiHint}>{hint}</span>
+    </div>
+  );
+}
+
+function ConcoursChips({ numeros, concours }: { numeros: string[]; concours: ConcoursDto[] }) {
+  if (!numeros.length) {
+    return <span style={mutedChip}>Aucun concours lié</span>;
+  }
+  return (
+    <div style={chipRow}>
+      {numeros.map((num) => (
+        <span key={num} style={concoursChip} title={num}>
+          {concoursLabel(num, concours)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ModalFrame({
+  title,
+  subtitle,
+  onClose,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div style={modalBackdrop} role="presentation" onMouseDown={onClose}>
+      <div
+        style={modalPanel}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="lieux-modal-title"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div style={modalHeader}>
+          <div>
+            <h2 id="lieux-modal-title" style={modalTitle}>
+              {title}
+            </h2>
+            {subtitle ? <p style={modalSubtitle}>{subtitle}</p> : null}
+          </div>
+          <button type="button" style={closeBtn} onClick={onClose} aria-label="Fermer">
+            ×
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function SidebarSkeleton() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }} aria-hidden="true">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} style={skeletonLine} />
+      ))}
+    </div>
+  );
+}
+
+function DetailSkeleton() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }} aria-hidden="true">
+      <div style={{ ...skeletonLine, width: "45%", height: "1.25rem" }} />
+      <div style={{ ...skeletonLine, width: "70%" }} />
+      <div style={{ ...skeletonLine, width: "100%", height: "5rem", marginTop: "0.5rem" }} />
+    </div>
+  );
+}
+
+function SalleCard({
+  salle,
+  concours,
+  readOnly,
+  onEdit,
+  onDelete,
+}: {
+  salle: SalleDto;
+  concours: ConcoursDto[];
+  readOnly: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const linked = salle.numeroConcours ? concoursLabel(salle.numeroConcours, concours) : null;
+
+  return (
+    <div style={salleCard}>
+      <div style={salleCardTop}>
+        <span style={salleName}>{salle.nomSalle}</span>
+        <span style={placesBadge}>{salle.nombrePlaces} places</span>
+      </div>
+      {linked ? (
+        <span style={salleConcoursChip}>{linked}</span>
+      ) : (
+        <span style={mutedChip}>Sans concours</span>
+      )}
+      {!readOnly ? (
+        <div style={salleActions}>
+          <button type="button" style={btnEditSmall} onClick={onEdit}>
+            Modifier
+          </button>
+          <button type="button" style={btnDeleteSmall} onClick={onDelete}>
+            Supprimer
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export default function LieuxPage() {
@@ -119,6 +238,26 @@ export default function LieuxPage() {
       }
     })();
   }, [loadCentres, loadDetail]);
+
+  const stats = useMemo(() => {
+    const items = centres ?? [];
+    const totalEtab = items.reduce((sum, c) => sum + c.nombreEtablissements, 0);
+    const linkedConcours = new Set(items.flatMap((c) => c.concoursNumeros)).size;
+    const salles =
+      detail?.etablissements.reduce((sum, e) => sum + e.salles.length, 0) ?? 0;
+    const places =
+      detail?.etablissements.reduce(
+        (sum, e) => sum + e.salles.reduce((s, sal) => s + sal.nombrePlaces, 0),
+        0,
+      ) ?? 0;
+    return {
+      totalCentres: items.length,
+      totalEtab,
+      linkedConcours,
+      selectedSalles: salles,
+      selectedPlaces: places,
+    };
+  }, [centres, detail]);
 
   if (state.status !== "authenticated") {
     return null;
@@ -231,7 +370,7 @@ export default function LieuxPage() {
       } else if (axios.isAxiosError(err) && err.response?.status === 403) {
         setActionError("Modification réservée au gestionnaire.");
       } else {
-        setActionError(err instanceof Error ? err.message : "Échec de l’enregistrement du centre.");
+        setActionError(err instanceof Error ? err.message : "Échec de l'enregistrement du centre.");
       }
     } finally {
       setSaving(false);
@@ -242,7 +381,7 @@ export default function LieuxPage() {
     e.preventDefault();
     const nom = etabNom.trim();
     if (!nom) {
-      setActionError("Indiquez le nom de l’établissement.");
+      setActionError("Indiquez le nom de l'établissement.");
       return;
     }
     if (editingEtab == null && etabCentreId == null) {
@@ -271,7 +410,7 @@ export default function LieuxPage() {
       } else if (axios.isAxiosError(err) && err.response?.status === 403) {
         setActionError("Modification réservée au gestionnaire.");
       } else {
-        setActionError(err instanceof Error ? err.message : "Échec de l’enregistrement de l’établissement.");
+        setActionError(err instanceof Error ? err.message : "Échec de l'enregistrement de l'établissement.");
       }
     } finally {
       setSaving(false);
@@ -320,7 +459,7 @@ export default function LieuxPage() {
       } else if (axios.isAxiosError(err) && err.response?.status === 502) {
         setActionError("Service concours indisponible pour valider le concours.");
       } else {
-        setActionError(err instanceof Error ? err.message : "Échec de l’enregistrement de la salle.");
+        setActionError(err instanceof Error ? err.message : "Échec de l'enregistrement de la salle.");
       }
     } finally {
       setSaving(false);
@@ -346,7 +485,7 @@ export default function LieuxPage() {
   }
 
   async function handleDeleteEtab(etab: EtablissementDetailDto) {
-    if (!window.confirm(`Supprimer l’établissement « ${etab.nomEtablissement} » et ses salles ?`)) return;
+    if (!window.confirm(`Supprimer l'établissement « ${etab.nomEtablissement} » et ses salles ?`)) return;
     setActionError(null);
     try {
       await deleteEtablissement(etab.idEtablissement);
@@ -375,70 +514,157 @@ export default function LieuxPage() {
     }
   }
 
+  const refreshing = loadingList || loadingDetail;
+
   return (
     <div style={page}>
       <AppHeader />
 
       <main style={main}>
+        <div style={hero}>
+          <div>
+            <h1 style={h1}>Lieux</h1>
+          </div>
+          <div style={heroActions}>
+            <button
+              type="button"
+              style={btnGhost}
+              onClick={() => void refreshAll(selectedId)}
+              disabled={refreshing}
+            >
+              {refreshing ? "Actualisation…" : "Actualiser"}
+            </button>
+            {!readOnly ? (
+              <button type="button" style={btnPrimary} onClick={openCreateCentre} disabled={loadingList}>
+                + Nouveau centre
+              </button>
+            ) : null}
+          </div>
+        </div>
+
         {actionError ? (
           <p role="alert" style={alert}>
             {actionError}
           </p>
         ) : null}
 
+        {!loadingList && !listError && centres ? (
+          <section style={kpiGrid}>
+            <KpiCard label="Centres" value={stats.totalCentres} hint="villes / pôles" accent="#0d9488" />
+            <KpiCard label="Établissements" value={stats.totalEtab} hint="au total" accent="#2563eb" />
+            <KpiCard label="Concours liés" value={stats.linkedConcours} hint="références actives" accent="#7c3aed" />
+            {detail ? (
+              <KpiCard
+                label="Capacité (centre)"
+                value={stats.selectedPlaces}
+                hint={`${stats.selectedSalles} salle(s) · ${detail.nomCentre}`}
+                accent="#d97706"
+              />
+            ) : null}
+          </section>
+        ) : null}
+
         <div style={layout}>
           <aside style={sidebar}>
-            <div style={sidebarToolbar}>
-              <h2 style={h2Sidebar}>Centres</h2>
-              {!readOnly ? (
-                <button type="button" style={btnPrimarySmall} onClick={openCreateCentre} disabled={loadingList}>
-                  + Centre
-                </button>
-              ) : null}
+            <div style={sidebarHeader}>
+              <span style={sidebarLabel}>Centres</span>
+              <span style={sidebarCount}>{centres?.length ?? 0}</span>
             </div>
-            {loadingList ? <p style={muted}>Chargement…</p> : null}
+
+            {loadingList ? <SidebarSkeleton /> : null}
+
             {!loadingList && listError ? (
-              <p role="alert" style={alertSmall}>
-                {listError}
-              </p>
+              <div style={errorBox}>
+                <p role="alert" style={errorBoxText}>
+                  {listError}
+                </p>
+                <button type="button" style={btnGhostSmall} onClick={() => void loadCentres()}>
+                  Réessayer
+                </button>
+              </div>
             ) : null}
+
             {!loadingList && !listError && centres && centres.length === 0 ? (
-              <p style={muted}>Aucun centre. Créez un centre pour commencer.</p>
+              <div style={emptySidebar}>
+                <span style={emptyIcon} aria-hidden="true">
+                  🏢
+                </span>
+                <p style={emptyText}>Aucun centre</p>
+                {!readOnly ? (
+                  <button type="button" style={btnPrimarySmall} onClick={openCreateCentre}>
+                    Créer un centre
+                  </button>
+                ) : null}
+              </div>
             ) : null}
+
             {!loadingList && centres && centres.length > 0 ? (
-              <ul style={centreList}>
-                {centres.map((c) => (
-                  <li key={c.idCentre}>
-                    <button
-                      type="button"
-                      style={selectedId === c.idCentre ? centreItemActive : centreItem}
-                      onClick={() => selectCentre(c.idCentre)}
-                    >
-                      <span style={centreItemName}>{c.nomCentre}</span>
-                      <span style={centreItemMeta}>
-                        {c.nombreEtablissements} établ.
-                        {c.concoursNumeros.length ? ` · ${c.concoursNumeros.length} concours` : ""}
-                      </span>
-                    </button>
-                  </li>
-                ))}
+              <ul style={centreNavList}>
+                {centres.map((c) => {
+                  const active = selectedId === c.idCentre;
+                  return (
+                    <li key={c.idCentre}>
+                      <button
+                        type="button"
+                        style={active ? centreNavItemActive : centreNavItem}
+                        onClick={() => selectCentre(c.idCentre)}
+                      >
+                        <span style={centreNavIcon} aria-hidden="true">
+                          📍
+                        </span>
+                        <span style={centreNavContent}>
+                          <span style={centreNavName}>{c.nomCentre}</span>
+                          <span style={centreNavMeta}>
+                            {c.nombreEtablissements} établ.
+                            {c.concoursNumeros.length ? ` · ${c.concoursNumeros.length} concours` : ""}
+                          </span>
+                        </span>
+                        {active ? <span style={activeDot} aria-hidden="true" /> : null}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             ) : null}
           </aside>
 
           <section style={detailPanel}>
-            {loadingDetail ? <p style={muted}>Chargement du centre…</p> : null}
-            {!loadingDetail && !detail && !loadingList ? (
-              <p style={muted}>Sélectionnez ou créez un centre.</p>
+            {loadingDetail ? <DetailSkeleton /> : null}
+
+            {!loadingDetail && !detail && !loadingList && !listError ? (
+              <div style={emptyDetail}>
+                <span style={emptyIcon} aria-hidden="true">
+                  🗺️
+                </span>
+                <h2 style={emptyTitle}>Sélectionnez un centre</h2>
+                <p style={emptyDesc}>Choisissez un centre dans la liste ou créez-en un nouveau pour commencer.</p>
+                {!readOnly && centres && centres.length === 0 ? (
+                  <button type="button" style={btnPrimary} onClick={openCreateCentre}>
+                    Créer un centre
+                  </button>
+                ) : null}
+              </div>
             ) : null}
+
             {!loadingDetail && detail ? (
               <>
-                <div style={detailHeader}>
-                  <div>
+                <div style={detailHero}>
+                  <div style={detailHeroMain}>
+                    <span style={detailBadge}>Centre #{detail.idCentre}</span>
                     <h2 style={h2Detail}>{detail.nomCentre}</h2>
-                    <p style={detailMeta}>
-                      ID {detail.idCentre} · Concours liés : {formatConcoursNumeros(detail.concoursNumeros, concoursList)}
-                    </p>
+                    <div style={detailStatsRow}>
+                      <span style={statPill}>
+                        {detail.etablissements.length} établissement{detail.etablissements.length !== 1 ? "s" : ""}
+                      </span>
+                      <span style={statPill}>
+                        {stats.selectedSalles} salle{stats.selectedSalles !== 1 ? "s" : ""}
+                      </span>
+                      <span style={statPillAccent}>{stats.selectedPlaces} places</span>
+                    </div>
+                    <div style={concoursSection}>
+                      <span style={concoursSectionLabel}>Concours liés</span>
+                      <ConcoursChips numeros={detail.concoursNumeros} concours={concoursList} />
+                    </div>
                   </div>
                   {!readOnly ? (
                     <div style={detailActions}>
@@ -456,69 +682,59 @@ export default function LieuxPage() {
                 </div>
 
                 {detail.etablissements.length === 0 ? (
-                  <p style={muted}>Aucun établissement dans ce centre.</p>
+                  <div style={emptyEtab}>
+                    <p style={emptyEtabText}>Aucun établissement dans ce centre.</p>
+                    {!readOnly ? (
+                      <button type="button" style={btnAddDashed} onClick={openCreateEtab}>
+                        + Ajouter un établissement
+                      </button>
+                    ) : null}
+                  </div>
                 ) : null}
 
-                {detail.etablissements.map((etab) => (
-                  <article key={etab.idEtablissement} style={etabCard}>
-                    <div style={etabHeader}>
-                      <div>
-                        <h3 style={h3}>{etab.nomEtablissement}</h3>
-                        <span style={etabMeta}>
-                          ID {etab.idEtablissement} · Concours : {formatConcoursNumeros(etab.concoursNumeros, concoursList)}
-                        </span>
-                      </div>
-                      {!readOnly ? (
-                        <div style={etabActions}>
-                          <button type="button" style={btnLink} onClick={() => openCreateSalle(etab)}>
-                            + Salle
-                          </button>
-                          <button type="button" style={btnLink} onClick={() => openEditEtab(etab)}>
-                            Modifier
-                          </button>
-                          <button type="button" style={btnDanger} onClick={() => void handleDeleteEtab(etab)}>
-                            Supprimer
-                          </button>
+                <div style={etabList}>
+                  {detail.etablissements.map((etab) => (
+                    <article key={etab.idEtablissement} style={etabCard}>
+                      <div style={etabHeader}>
+                        <div>
+                          <h3 style={h3}>{etab.nomEtablissement}</h3>
+                          <span style={etabMeta}>ID {etab.idEtablissement}</span>
+                          <ConcoursChips numeros={etab.concoursNumeros} concours={concoursList} />
                         </div>
-                      ) : null}
-                    </div>
-                    {etab.salles.length === 0 ? (
-                      <p style={mutedSmall}>Aucune salle.</p>
-                    ) : (
-                      <div style={tableWrap}>
-                        <table style={table}>
-                          <thead>
-                            <tr>
-                              <th style={th}>Salle</th>
-                              <th style={th}>Places</th>
-                              <th style={th}>Concours</th>
-                              {!readOnly ? <th style={thActions}>Actions</th> : null}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {etab.salles.map((s) => (
-                              <tr key={s.idSalle}>
-                                <td style={td}>{s.nomSalle}</td>
-                                <td style={td}>{s.nombrePlaces}</td>
-                                <td style={td}>{concoursLabel(s.numeroConcours, concoursList)}</td>
-                                {!readOnly ? (
-                                  <td style={tdActions}>
-                                    <button type="button" style={btnLink} onClick={() => openEditSalle(s)}>
-                                      Modifier
-                                    </button>
-                                    <button type="button" style={btnDanger} onClick={() => void handleDeleteSalle(s)}>
-                                      Supprimer
-                                    </button>
-                                  </td>
-                                ) : null}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                        {!readOnly ? (
+                          <div style={etabActions}>
+                            <button type="button" style={btnAddSmall} onClick={() => openCreateSalle(etab)}>
+                              + Salle
+                            </button>
+                            <button type="button" style={btnEditSmall} onClick={() => openEditEtab(etab)}>
+                              Modifier
+                            </button>
+                            <button type="button" style={btnDeleteSmall} onClick={() => void handleDeleteEtab(etab)}>
+                              Supprimer
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
-                    )}
-                  </article>
-                ))}
+
+                      {etab.salles.length === 0 ? (
+                        <p style={mutedSmall}>Aucune salle — ajoutez une salle pour définir la capacité.</p>
+                      ) : (
+                        <div style={salleGrid}>
+                          {etab.salles.map((s) => (
+                            <SalleCard
+                              key={s.idSalle}
+                              salle={s}
+                              concours={concoursList}
+                              readOnly={readOnly}
+                              onEdit={() => openEditSalle(s)}
+                              onDelete={() => void handleDeleteSalle(s)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </article>
+                  ))}
+                </div>
               </>
             ) : null}
           </section>
@@ -526,137 +742,131 @@ export default function LieuxPage() {
       </main>
 
       {modal === "centre" ? (
-        <div style={modalBackdrop} role="presentation" onClick={closeModal}>
-          <div
-            style={modalPanel}
-            role="dialog"
-            aria-labelledby="modal-centre-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 id="modal-centre-title" style={modalTitle}>
-              {editingCentreId == null ? "Nouveau centre" : "Modifier le centre"}
-            </h2>
-            <form onSubmit={(e) => void handleCentreSubmit(e)}>
-              <label style={labelFull}>
-                Nom du centre (ville / pôle)
-                <input
-                  style={input}
-                  value={centreNom}
-                  onChange={(e) => setCentreNom(e.target.value)}
-                  placeholder="Ex. Centre Rabat"
-                  maxLength={200}
-                  required
-                />
-              </label>
-              <div style={modalActions}>
-                <button type="button" style={btnGhost} onClick={closeModal} disabled={saving}>
-                  Annuler
-                </button>
-                <button type="submit" style={btnPrimary} disabled={saving}>
-                  {saving ? "Enregistrement…" : "Enregistrer"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <ModalFrame
+          title={editingCentreId == null ? "Nouveau centre" : "Modifier le centre"}
+          subtitle="Un centre représente une ville ou un pôle d'examen."
+          onClose={closeModal}
+        >
+          <form style={modalForm} onSubmit={(e) => void handleCentreSubmit(e)}>
+            <label style={labelFull}>
+              Nom du centre (ville / pôle)
+              <input
+                style={input}
+                value={centreNom}
+                onChange={(e) => setCentreNom(e.target.value)}
+                placeholder="Ex. Centre Rabat"
+                maxLength={200}
+                required
+              />
+            </label>
+            <div style={modalActions}>
+              <button type="button" style={btnGhost} onClick={closeModal} disabled={saving}>
+                Annuler
+              </button>
+              <button type="submit" style={btnPrimary} disabled={saving}>
+                {saving ? "Enregistrement…" : "Enregistrer"}
+              </button>
+            </div>
+          </form>
+        </ModalFrame>
       ) : null}
 
       {modal === "etablissement" ? (
-        <div style={modalBackdrop} role="presentation" onClick={closeModal}>
-          <div
-            style={modalPanel}
-            role="dialog"
-            aria-labelledby="modal-etab-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 id="modal-etab-title" style={modalTitle}>
-              {editingEtab == null ? "Nouvel établissement" : "Modifier l’établissement"}
-            </h2>
-            <form onSubmit={(e) => void handleEtabSubmit(e)}>
-              <label style={labelFull}>
-                Nom de l’établissement
+        <ModalFrame
+          title={editingEtab == null ? "Nouvel établissement" : "Modifier l'établissement"}
+          subtitle={detail ? `Dans le centre « ${detail.nomCentre} »` : undefined}
+          onClose={closeModal}
+        >
+          <form style={modalForm} onSubmit={(e) => void handleEtabSubmit(e)}>
+            <label style={labelFull}>
+              Nom de l&apos;établissement
+              <input
+                style={input}
+                value={etabNom}
+                onChange={(e) => setEtabNom(e.target.value)}
+                placeholder="Ex. Lycée Hassan II"
+                maxLength={200}
+                required
+              />
+            </label>
+            <div style={modalActions}>
+              <button type="button" style={btnGhost} onClick={closeModal} disabled={saving}>
+                Annuler
+              </button>
+              <button type="submit" style={btnPrimary} disabled={saving}>
+                {saving ? "Enregistrement…" : "Enregistrer"}
+              </button>
+            </div>
+          </form>
+        </ModalFrame>
+      ) : null}
+
+      {modal === "salle" ? (
+        <ModalFrame
+          title={editingSalle == null ? "Nouvelle salle" : "Modifier la salle"}
+          subtitle="Définissez la capacité et associez éventuellement un concours."
+          onClose={closeModal}
+        >
+          <form style={modalForm} onSubmit={(e) => void handleSalleSubmit(e)}>
+            <div style={formGrid}>
+              <label style={label}>
+                Nom de la salle
                 <input
                   style={input}
-                  value={etabNom}
-                  onChange={(e) => setEtabNom(e.target.value)}
+                  value={salleNom}
+                  onChange={(e) => setSalleNom(e.target.value)}
+                  placeholder="Ex. Salle A12"
                   maxLength={200}
                   required
                 />
               </label>
-              <div style={modalActions}>
-                <button type="button" style={btnGhost} onClick={closeModal} disabled={saving}>
-                  Annuler
-                </button>
-                <button type="submit" style={btnPrimary} disabled={saving}>
-                  {saving ? "Enregistrement…" : "Enregistrer"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
-
-      {modal === "salle" ? (
-        <div style={modalBackdrop} role="presentation" onClick={closeModal}>
-          <div style={modalPanel} role="dialog" aria-labelledby="modal-salle-title" onClick={(e) => e.stopPropagation()}>
-            <h2 id="modal-salle-title" style={modalTitle}>
-              {editingSalle == null ? "Nouvelle salle" : "Modifier la salle"}
-            </h2>
-            <form onSubmit={(e) => void handleSalleSubmit(e)}>
-              <div style={formGrid}>
-                <label style={label}>
-                  Nom de la salle
-                  <input
-                    style={input}
-                    value={salleNom}
-                    onChange={(e) => setSalleNom(e.target.value)}
-                    maxLength={200}
-                    required
-                  />
-                </label>
-                <label style={label}>
-                  Nombre de places
-                  <input
-                    style={input}
-                    type="number"
-                    min={1}
-                    max={1000000}
-                    value={sallePlaces}
-                    onChange={(e) => setSallePlaces(e.target.value)}
-                    required
-                  />
-                </label>
-                <label style={{ ...label, gridColumn: "1 / -1" }}>
-                  Concours (optionnel — un seul concours par salle)
-                  <select
-                    style={input}
-                    value={salleConcoursId}
-                    onChange={(e) => setSalleConcoursId(e.target.value)}
-                  >
-                    <option value="">— Aucun —</option>
-                    {concoursList.map((c) => (
-                      <option key={c.numeroConcours} value={c.numeroConcours}>
-                        {c.nomConcours}
-                        {c.numeroConcours ? ` (${c.numeroConcours})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              {concoursList.length === 0 ? (
-                <p style={hint}>Créez d’abord des concours pour les associer aux salles.</p>
-              ) : null}
-              <div style={modalActions}>
-                <button type="button" style={btnGhost} onClick={closeModal} disabled={saving}>
-                  Annuler
-                </button>
-                <button type="submit" style={btnPrimary} disabled={saving}>
-                  {saving ? "Enregistrement…" : "Enregistrer"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+              <label style={label}>
+                Nombre de places
+                <input
+                  style={input}
+                  type="number"
+                  min={1}
+                  max={1000000}
+                  value={sallePlaces}
+                  onChange={(e) => setSallePlaces(e.target.value)}
+                  required
+                />
+              </label>
+              <label style={{ ...label, gridColumn: "1 / -1" }}>
+                Concours (optionnel)
+                <select
+                  style={input}
+                  value={salleConcoursId}
+                  onChange={(e) => setSalleConcoursId(e.target.value)}
+                >
+                  <option value="">— Aucun —</option>
+                  {concoursList.map((c) => (
+                    <option key={c.numeroConcours} value={c.numeroConcours}>
+                      {c.nomConcours}
+                      {c.numeroConcours ? ` (${c.numeroConcours})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {concoursList.length === 0 ? (
+              <p style={hint}>
+                <Link to="/concours" style={inlineLink}>
+                  Créez des concours
+                </Link>{" "}
+                pour les associer aux salles.
+              </p>
+            ) : null}
+            <div style={modalActions}>
+              <button type="button" style={btnGhost} onClick={closeModal} disabled={saving}>
+                Annuler
+              </button>
+              <button type="submit" style={btnPrimary} disabled={saving}>
+                {saving ? "Enregistrement…" : "Enregistrer"}
+              </button>
+            </div>
+          </form>
+        </ModalFrame>
       ) : null}
     </div>
   );
@@ -667,6 +877,41 @@ const page: CSSProperties = {
   background: "#f8fafc",
 };
 
+const main: CSSProperties = {
+  maxWidth: "1200px",
+  margin: "0 auto",
+  padding: "2rem 1.5rem 3rem",
+};
+
+const hero: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: "1rem",
+  flexWrap: "wrap",
+  marginBottom: "1.5rem",
+};
+
+const h1: CSSProperties = {
+  margin: 0,
+  fontSize: "1.75rem",
+  color: "#0f172a",
+  fontWeight: 800,
+};
+
+const inlineLink: CSSProperties = {
+  color: "#2563eb",
+  fontWeight: 600,
+  textDecoration: "none",
+};
+
+const heroActions: CSSProperties = {
+  display: "flex",
+  gap: "0.5rem",
+  flexWrap: "wrap",
+  alignItems: "center",
+};
+
 const btnGhost: CSSProperties = {
   padding: "0.45rem 0.85rem",
   borderRadius: "8px",
@@ -675,22 +920,30 @@ const btnGhost: CSSProperties = {
   cursor: "pointer",
   fontWeight: 600,
   fontSize: "0.875rem",
+  color: "#334155",
+};
+
+const btnGhostSmall: CSSProperties = {
+  ...btnGhost,
+  padding: "0.35rem 0.65rem",
+  fontSize: "0.8125rem",
 };
 
 const btnPrimary: CSSProperties = {
   padding: "0.5rem 1rem",
   borderRadius: "8px",
   border: "none",
-  background: "#2563eb",
+  background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
   color: "#fff",
   cursor: "pointer",
   fontWeight: 600,
   fontSize: "0.875rem",
+  boxShadow: "0 1px 3px rgba(37,99,235,0.35)",
 };
 
 const btnPrimarySmall: CSSProperties = {
   ...btnPrimary,
-  padding: "0.35rem 0.65rem",
+  padding: "0.35rem 0.75rem",
   fontSize: "0.8125rem",
 };
 
@@ -698,17 +951,57 @@ const btnDangerOutline: CSSProperties = {
   padding: "0.45rem 0.85rem",
   borderRadius: "8px",
   border: "1px solid #fecaca",
-  background: "#fff",
+  background: "#fef2f2",
   color: "#dc2626",
   cursor: "pointer",
   fontWeight: 600,
   fontSize: "0.875rem",
 };
 
-const main: CSSProperties = {
-  maxWidth: "1200px",
-  margin: "0 auto",
-  padding: "2rem 1.5rem",
+const kpiGrid: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+  gap: "1rem",
+  marginBottom: "1.5rem",
+};
+
+const kpiCard: CSSProperties = {
+  position: "relative",
+  background: "#fff",
+  borderRadius: "12px",
+  border: "1px solid #e2e8f0",
+  padding: "1.1rem 1rem 1rem",
+  overflow: "hidden",
+  display: "flex",
+  flexDirection: "column",
+  gap: "0.15rem",
+};
+
+const kpiAccent: CSSProperties = {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  height: "3px",
+};
+
+const kpiValue: CSSProperties = {
+  fontSize: "1.75rem",
+  fontWeight: 800,
+  color: "#0f172a",
+  lineHeight: 1.1,
+};
+
+const kpiLabel: CSSProperties = {
+  fontSize: "0.85rem",
+  fontWeight: 700,
+  color: "#334155",
+};
+
+const kpiHint: CSSProperties = {
+  fontSize: "0.72rem",
+  color: "#94a3b8",
+  marginTop: "0.15rem",
 };
 
 const alert: CSSProperties = {
@@ -720,26 +1013,9 @@ const alert: CSSProperties = {
   margin: "0 0 1rem",
 };
 
-const alertSmall: CSSProperties = {
-  ...alert,
-  fontSize: "0.8125rem",
-  padding: "0.5rem 0.75rem",
-};
-
-const muted: CSSProperties = {
-  color: "#64748b",
-  margin: 0,
-};
-
-const mutedSmall: CSSProperties = {
-  ...muted,
-  fontSize: "0.8125rem",
-  margin: "0.5rem 0 0",
-};
-
 const layout: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(220px, 280px) 1fr",
+  gridTemplateColumns: "minmax(240px, 280px) 1fr",
   gap: "1.25rem",
   alignItems: "start",
 };
@@ -749,23 +1025,39 @@ const sidebar: CSSProperties = {
   borderRadius: "12px",
   border: "1px solid #e2e8f0",
   padding: "1rem",
+  position: "sticky",
+  top: "5rem",
+  maxHeight: "calc(100vh - 6rem)",
+  overflowY: "auto",
 };
 
-const sidebarToolbar: CSSProperties = {
+const sidebarHeader: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: "0.5rem",
   marginBottom: "0.75rem",
+  paddingBottom: "0.65rem",
+  borderBottom: "1px solid #f1f5f9",
 };
 
-const h2Sidebar: CSSProperties = {
-  margin: 0,
-  fontSize: "1rem",
+const sidebarLabel: CSSProperties = {
+  fontSize: "0.7rem",
   fontWeight: 700,
+  color: "#94a3b8",
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
 };
 
-const centreList: CSSProperties = {
+const sidebarCount: CSSProperties = {
+  fontSize: "0.75rem",
+  fontWeight: 700,
+  color: "#64748b",
+  background: "#f1f5f9",
+  padding: "0.1rem 0.45rem",
+  borderRadius: "999px",
+};
+
+const centreNavList: CSSProperties = {
   listStyle: "none",
   margin: 0,
   padding: 0,
@@ -774,34 +1066,61 @@ const centreList: CSSProperties = {
   gap: "0.35rem",
 };
 
-const centreItem: CSSProperties = {
+const centreNavItem: CSSProperties = {
   width: "100%",
   textAlign: "left",
   padding: "0.65rem 0.75rem",
-  borderRadius: "8px",
+  borderRadius: "10px",
   border: "1px solid transparent",
   background: "transparent",
   cursor: "pointer",
   display: "flex",
-  flexDirection: "column",
-  gap: "0.15rem",
+  alignItems: "center",
+  gap: "0.6rem",
+  transition: "background 0.15s ease, border-color 0.15s ease",
 };
 
-const centreItemActive: CSSProperties = {
-  ...centreItem,
-  background: "#eff6ff",
+const centreNavItemActive: CSSProperties = {
+  ...centreNavItem,
+  background: "linear-gradient(135deg, #eff6ff 0%, #ecfdf5 100%)",
   borderColor: "#bfdbfe",
+  boxShadow: "0 1px 3px rgba(37,99,235,0.08)",
 };
 
-const centreItemName: CSSProperties = {
-  fontWeight: 600,
-  fontSize: "0.9rem",
+const centreNavIcon: CSSProperties = {
+  fontSize: "1rem",
+  lineHeight: 1,
+  flexShrink: 0,
+};
+
+const centreNavContent: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "0.1rem",
+  minWidth: 0,
+  flex: 1,
+};
+
+const centreNavName: CSSProperties = {
+  fontWeight: 700,
+  fontSize: "0.875rem",
   color: "#0f172a",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
 };
 
-const centreItemMeta: CSSProperties = {
-  fontSize: "0.75rem",
+const centreNavMeta: CSSProperties = {
+  fontSize: "0.72rem",
   color: "#64748b",
+};
+
+const activeDot: CSSProperties = {
+  width: "6px",
+  height: "6px",
+  borderRadius: "50%",
+  background: "#2563eb",
+  flexShrink: 0,
 };
 
 const detailPanel: CSSProperties = {
@@ -809,44 +1128,127 @@ const detailPanel: CSSProperties = {
   borderRadius: "12px",
   border: "1px solid #e2e8f0",
   padding: "1.25rem",
-  minHeight: "200px",
+  minHeight: "280px",
 };
 
-const detailHeader: CSSProperties = {
+const detailHero: CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
   gap: "1rem",
   flexWrap: "wrap",
-  marginBottom: "1.25rem",
-  paddingBottom: "1rem",
-  borderBottom: "1px solid #f1f5f9",
+  marginBottom: "1.5rem",
+  padding: "1.15rem",
+  borderRadius: "12px",
+  background: "linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)",
+  border: "1px solid #e2e8f0",
+};
+
+const detailHeroMain: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "0.5rem",
+  minWidth: 0,
+};
+
+const detailBadge: CSSProperties = {
+  alignSelf: "flex-start",
+  fontSize: "0.7rem",
+  fontWeight: 700,
+  color: "#64748b",
+  background: "#fff",
+  padding: "0.15rem 0.5rem",
+  borderRadius: "6px",
+  border: "1px solid #e2e8f0",
+  fontFamily: "ui-monospace, monospace",
 };
 
 const h2Detail: CSSProperties = {
-  margin: "0 0 0.25rem",
-  fontSize: "1.2rem",
+  margin: 0,
+  fontSize: "1.35rem",
+  fontWeight: 800,
+  color: "#0f172a",
 };
 
-const detailMeta: CSSProperties = {
-  margin: 0,
-  fontSize: "0.8125rem",
-  color: "#64748b",
+const detailStatsRow: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "0.4rem",
+};
+
+const statPill: CSSProperties = {
+  fontSize: "0.75rem",
+  fontWeight: 600,
+  color: "#475569",
+  background: "#fff",
+  padding: "0.2rem 0.55rem",
+  borderRadius: "999px",
+  border: "1px solid #e2e8f0",
+};
+
+const statPillAccent: CSSProperties = {
+  ...statPill,
+  color: "#b45309",
+  background: "#fffbeb",
+  borderColor: "#fcd34d",
+};
+
+const concoursSection: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "0.35rem",
+  marginTop: "0.25rem",
+};
+
+const concoursSectionLabel: CSSProperties = {
+  fontSize: "0.7rem",
+  fontWeight: 700,
+  color: "#94a3b8",
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
+};
+
+const chipRow: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "0.35rem",
+};
+
+const concoursChip: CSSProperties = {
+  display: "inline-block",
+  padding: "0.2rem 0.55rem",
+  borderRadius: "999px",
+  background: "#eef2ff",
+  color: "#4338ca",
+  border: "1px solid #c7d2fe",
+  fontSize: "0.72rem",
+  fontWeight: 600,
+};
+
+const mutedChip: CSSProperties = {
+  fontSize: "0.75rem",
+  color: "#94a3b8",
+  fontStyle: "italic",
 };
 
 const detailActions: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   gap: "0.5rem",
-  alignItems: "center",
+  alignItems: "flex-start",
+};
+
+const etabList: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "1rem",
 };
 
 const etabCard: CSSProperties = {
-  marginTop: "1rem",
-  padding: "1rem",
-  borderRadius: "10px",
+  padding: "1.15rem",
+  borderRadius: "12px",
   border: "1px solid #e2e8f0",
-  background: "#fafbfc",
+  background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
 };
 
 const etabHeader: CSSProperties = {
@@ -855,86 +1257,227 @@ const etabHeader: CSSProperties = {
   justifyContent: "space-between",
   gap: "0.75rem",
   flexWrap: "wrap",
-  marginBottom: "0.75rem",
+  marginBottom: "0.85rem",
 };
 
 const h3: CSSProperties = {
   margin: "0 0 0.2rem",
   fontSize: "1rem",
+  fontWeight: 700,
+  color: "#0f172a",
 };
 
 const etabMeta: CSSProperties = {
-  fontSize: "0.75rem",
-  color: "#64748b",
+  display: "block",
+  fontSize: "0.72rem",
+  color: "#94a3b8",
+  marginBottom: "0.4rem",
+  fontFamily: "ui-monospace, monospace",
 };
 
 const etabActions: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
-  gap: "0.25rem",
+  gap: "0.35rem",
   alignItems: "center",
 };
 
-const tableWrap: CSSProperties = {
-  overflowX: "auto",
+const salleGrid: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+  gap: "0.65rem",
 };
 
-const table: CSSProperties = {
-  width: "100%",
-  borderCollapse: "collapse",
-  fontSize: "0.8125rem",
+const salleCard: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "0.45rem",
+  padding: "0.85rem",
+  borderRadius: "10px",
   background: "#fff",
+  border: "1px solid #e2e8f0",
 };
 
-const th: CSSProperties = {
-  textAlign: "left",
-  padding: "0.5rem 0.4rem",
-  borderBottom: "2px solid #e2e8f0",
-  color: "#475569",
-  fontWeight: 600,
+const salleCardTop: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: "0.5rem",
 };
 
-const thActions: CSSProperties = {
-  ...th,
-  textAlign: "right",
-  minWidth: "160px",
+const salleName: CSSProperties = {
+  fontWeight: 700,
+  fontSize: "0.875rem",
+  color: "#0f172a",
 };
 
-const td: CSSProperties = {
-  padding: "0.45rem 0.4rem",
-  borderBottom: "1px solid #f1f5f9",
-  verticalAlign: "top",
-};
-
-const tdActions: CSSProperties = {
-  ...td,
-  textAlign: "right",
+const placesBadge: CSSProperties = {
+  fontSize: "0.7rem",
+  fontWeight: 700,
+  color: "#047857",
+  background: "#ecfdf5",
+  padding: "0.15rem 0.45rem",
+  borderRadius: "999px",
+  border: "1px solid #a7f3d0",
   whiteSpace: "nowrap",
 };
 
-const btnLink: CSSProperties = {
-  border: "none",
-  background: "none",
+const salleConcoursChip: CSSProperties = {
+  alignSelf: "flex-start",
+  fontSize: "0.7rem",
+  fontWeight: 600,
+  color: "#4338ca",
+  background: "#eef2ff",
+  padding: "0.15rem 0.45rem",
+  borderRadius: "6px",
+};
+
+const salleActions: CSSProperties = {
+  display: "flex",
+  gap: "0.35rem",
+  marginTop: "auto",
+  paddingTop: "0.35rem",
+  borderTop: "1px solid #f1f5f9",
+};
+
+const btnEditSmall: CSSProperties = {
+  flex: 1,
+  padding: "0.3rem 0.5rem",
+  borderRadius: "6px",
+  border: "1px solid #cbd5e1",
+  background: "#fff",
+  color: "#2563eb",
+  cursor: "pointer",
+  fontWeight: 600,
+  fontSize: "0.75rem",
+};
+
+const btnDeleteSmall: CSSProperties = {
+  flex: 1,
+  padding: "0.3rem 0.5rem",
+  borderRadius: "6px",
+  border: "1px solid #fecaca",
+  background: "#fef2f2",
+  color: "#dc2626",
+  cursor: "pointer",
+  fontWeight: 600,
+  fontSize: "0.75rem",
+};
+
+const btnAddSmall: CSSProperties = {
+  padding: "0.35rem 0.65rem",
+  borderRadius: "8px",
+  border: "1px dashed #93c5fd",
+  background: "#eff6ff",
   color: "#2563eb",
   cursor: "pointer",
   fontWeight: 600,
   fontSize: "0.8125rem",
-  marginRight: "0.5rem",
 };
 
-const btnDanger: CSSProperties = {
-  border: "none",
-  background: "none",
-  color: "#dc2626",
+const btnAddDashed: CSSProperties = {
+  padding: "0.5rem 1rem",
+  borderRadius: "8px",
+  border: "1px dashed #93c5fd",
+  background: "#eff6ff",
+  color: "#2563eb",
   cursor: "pointer",
   fontWeight: 600,
+  fontSize: "0.875rem",
+  width: "100%",
+};
+
+const mutedSmall: CSSProperties = {
+  color: "#64748b",
   fontSize: "0.8125rem",
+  margin: 0,
+};
+
+const emptySidebar: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  textAlign: "center",
+  padding: "1.5rem 0.5rem",
+  gap: "0.5rem",
+};
+
+const emptyDetail: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  textAlign: "center",
+  padding: "3rem 1.5rem",
+  gap: "0.5rem",
+};
+
+const emptyEtab: CSSProperties = {
+  textAlign: "center",
+  padding: "2rem 1rem",
+  marginBottom: "1rem",
+  borderRadius: "10px",
+  border: "1px dashed #cbd5e1",
+  background: "#f8fafc",
+};
+
+const emptyEtabText: CSSProperties = {
+  margin: "0 0 0.75rem",
+  color: "#64748b",
+  fontSize: "0.9rem",
+};
+
+const emptyIcon: CSSProperties = {
+  fontSize: "2rem",
+};
+
+const emptyText: CSSProperties = {
+  margin: 0,
+  color: "#64748b",
+  fontSize: "0.875rem",
+};
+
+const emptyTitle: CSSProperties = {
+  margin: 0,
+  fontSize: "1.1rem",
+  fontWeight: 700,
+  color: "#0f172a",
+};
+
+const emptyDesc: CSSProperties = {
+  margin: "0 0 0.75rem",
+  color: "#64748b",
+  fontSize: "0.9rem",
+  maxWidth: "24rem",
+};
+
+const errorBox: CSSProperties = {
+  padding: "0.75rem",
+  borderRadius: "8px",
+  background: "#fef2f2",
+  border: "1px solid #fecaca",
+  textAlign: "center",
+};
+
+const errorBoxText: CSSProperties = {
+  margin: "0 0 0.5rem",
+  color: "#b91c1c",
+  fontSize: "0.8125rem",
+};
+
+const skeletonLine: CSSProperties = {
+  height: "2.75rem",
+  borderRadius: "10px",
+  background: "linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%)",
+  backgroundSize: "200% 100%",
+  animation: "shimmer 1.2s infinite",
 };
 
 const modalBackdrop: CSSProperties = {
   position: "fixed",
   inset: 0,
-  background: "rgba(15,23,42,0.45)",
+  background: "rgba(15,23,42,0.5)",
+  backdropFilter: "blur(4px)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -944,25 +1487,59 @@ const modalBackdrop: CSSProperties = {
 
 const modalPanel: CSSProperties = {
   background: "#fff",
-  borderRadius: "12px",
-  padding: "1.5rem",
+  borderRadius: "16px",
   maxWidth: "520px",
   width: "100%",
   maxHeight: "90vh",
   overflowY: "auto",
-  boxShadow: "0 20px 40px rgba(15,23,42,0.15)",
+  boxShadow: "0 25px 50px rgba(15,23,42,0.2)",
+};
+
+const modalHeader: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: "1rem",
+  padding: "1.5rem 1.5rem 0",
 };
 
 const modalTitle: CSSProperties = {
-  marginTop: 0,
-  marginBottom: "1rem",
-  fontSize: "1.15rem",
+  margin: 0,
+  fontSize: "1.2rem",
+  fontWeight: 800,
+  color: "#0f172a",
+};
+
+const modalSubtitle: CSSProperties = {
+  margin: "0.25rem 0 0",
+  fontSize: "0.8125rem",
+  color: "#64748b",
+};
+
+const closeBtn: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "2rem",
+  height: "2rem",
+  borderRadius: "8px",
+  border: "1px solid #e2e8f0",
+  background: "#f8fafc",
+  color: "#64748b",
+  cursor: "pointer",
+  fontSize: "1.25rem",
+  lineHeight: 1,
+  flexShrink: 0,
+};
+
+const modalForm: CSSProperties = {
+  padding: "1.25rem 1.5rem 1.5rem",
 };
 
 const label: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "0.25rem",
+  gap: "0.3rem",
   fontSize: "0.8rem",
   fontWeight: 600,
   color: "#475569",
@@ -974,10 +1551,11 @@ const labelFull: CSSProperties = {
 };
 
 const input: CSSProperties = {
-  padding: "0.45rem 0.55rem",
-  borderRadius: "6px",
+  padding: "0.5rem 0.65rem",
+  borderRadius: "8px",
   border: "1px solid #cbd5e1",
   fontSize: "0.875rem",
+  background: "#fff",
 };
 
 const formGrid: CSSProperties = {
@@ -991,10 +1569,12 @@ const modalActions: CSSProperties = {
   justifyContent: "flex-end",
   gap: "0.5rem",
   marginTop: "1.25rem",
+  paddingTop: "1rem",
+  borderTop: "1px solid #f1f5f9",
 };
 
 const hint: CSSProperties = {
-  margin: "0.5rem 0 0",
+  margin: "0.75rem 0 0",
   fontSize: "0.8rem",
   color: "#64748b",
 };

@@ -188,7 +188,6 @@ export default function DashboardPage() {
         <div style={hero}>
           <div>
             <h1 style={h1}>Tableau de bord</h1>
-            <p style={subtitle}>Vue d&apos;ensemble de la plateforme concours — données en temps réel.</p>
           </div>
           <button type="button" style={btnGhost} onClick={() => void loadDashboard()} disabled={loading}>
             {loading ? "Actualisation…" : "Actualiser"}
@@ -444,8 +443,6 @@ const hero: CSSProperties = {
 };
 
 const h1: CSSProperties = { margin: 0, fontSize: "1.75rem", color: "#0f172a", fontWeight: 800 };
-
-const subtitle: CSSProperties = { margin: "0.35rem 0 0", color: "#64748b", fontSize: "0.95rem" };
 
 const h2: CSSProperties = { margin: 0, fontSize: "1.1rem", color: "#0f172a" };
 

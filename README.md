@@ -1,9 +1,10 @@
 # PFE — Plateforme de gestion de concours
 
-Application full-stack (microservices) pour la gestion de **concours**, **candidats**,
-**lieux** (centres, établissements, salles), de la **répartition automatique** des
-candidats dans les salles et de l'envoi des **convocations** par e-mail, avec
-authentification JWT.
+Application full-stack (microservices) pour la **dématérialisation de la gestion des
+candidatures** (Ministère de l'Économie et des Finances — Maroc) : gestion de
+**concours**, **candidats**, **lieux** (centres, établissements, salles), **répartition
+automatique** des candidats dans les salles, **tableau de bord** opérationnel et envoi
+des **convocations** par e-mail, avec authentification JWT.
 
 - **Frontend** : React 19 + TypeScript (Vite), SPA sur le port `5173`.
 - **Backend** : une **API Gateway** (Spring Cloud Gateway) devant **6 microservices**
@@ -13,10 +14,11 @@ authentification JWT.
 
 > Pour la description détaillée de l'architecture (flux, communication inter-services,
 > règles de répartition, schémas, API), voir [`ARCHITECTURE.md`](ARCHITECTURE.md).
+> Le cahier des charges initial est dans [`projet.txt`](projet.txt).
 
 ## État du projet
 
-Revu le **25 juin 2026** — le dépôt est cohérent et prêt pour le développement local :
+Revu le **9 juillet 2026** — le dépôt est cohérent et prêt pour le développement local :
 
 | Vérification | Résultat |
 |--------------|----------|
@@ -26,6 +28,15 @@ Revu le **25 juin 2026** — le dépôt est cohérent et prêt pour le développ
 | Routage gateway ↔ services | Préfixes documentés = `application.yml` |
 | Migrations Flyway | 9 scripts répartis sur les 6 services |
 | TODO / FIXME dans le code | Aucun repéré |
+
+Fonctionnalités récentes côté frontend :
+
+- **Tableau de bord** (`/dashboard`) — agrégation des indicateurs (candidats, remplissage
+  des salles, dernière répartition, historique des envois).
+- **Exports client** — téléchargement PDF/DOCX des résultats de répartition et des
+  convocations (`jspdf`, `docx`).
+- **Identité visuelle MEF** — logo officiel dans l'en-tête et la page de connexion
+  (`frontend/public/mef-logo.png`).
 
 Points d'attention (non bloquants) :
 
@@ -41,10 +52,11 @@ Points d'attention (non bloquants) :
 | Dossier / fichier | Description |
 |-------------------|-------------|
 | `backend/` | API Gateway + microservices Spring Boot (auth, candidat, concours, lieux, repartition, convocation) |
-| `frontend/` | Interface React + TypeScript (Vite) |
+| `frontend/` | Interface React + TypeScript (Vite), exports PDF/DOCX, tableau de bord |
 | `database/` | Documentation des migrations Flyway (scripts dans chaque service) |
 | `scripts/` | Scripts utilitaires (seed de démo, génération PNG PlantUML, corps JSON d'exemple) |
 | `ARCHITECTURE.md` | Document de référence de l'architecture (en anglais) |
+| `projet.txt` | Cahier des charges PFE et attributs métier |
 | `verify-env.ps1` | Vérification de l'environnement de développement (Java, Maven, Node, PostgreSQL) |
 | `diagramme-*.puml` | Diagrammes UML (cas d'utilisation, classes, séquences) |
 
@@ -78,8 +90,8 @@ Vérifier l'environnement :
 Le front (via le proxy Vite) appelle la gateway sur `8080`, qui route par préfixe.
 L'en-tête `Authorization: Bearer <jwt>` est transmis tel quel ; chaque service valide le JWT lui-même.
 
-  in | Service cible |
-|-------------------|---------------|
+| Préfixe | Service cible |
+|---------|---------------|
 | `/auth/**` | auth-service (8081) |
 | `/api/candidats/**` | candidat-service (8082) |
 | `/api/concours/**` | concours-service (8083) |
@@ -203,6 +215,9 @@ sur leurs ports (8081, 8083, 8084), pas via la gateway.
 Pour réinitialiser les affectations sans relancer la répartition :
 `POST /api/repartition/reset` (gestionnaire).
 
+Pour effacer l'historique des envois de convocations :
+`POST /api/convocations/envois/reinitialiser` (gestionnaire).
+
 ## Comptes par défaut
 
 Créés par la migration Flyway de l'auth-service (**à changer en production**) :
@@ -220,14 +235,18 @@ Créés par la migration Flyway de l'auth-service (**à changer en production**)
 
 | Route | Page | Accès |
 |-------|------|-------|
-| `/` | Redirection vers `/candidats` ou `/login` | Public / authentifié |
+| `/` | Redirection vers `/dashboard` ou `/login` | Public / authentifié |
 | `/login` | Connexion | Public |
-| `/candidats` | Gestion des candidats | Authentifié |
+| `/dashboard` | Tableau de bord (KPIs agrégés) | Authentifié |
+| `/candidats` | Gestion des candidats (import Excel, CRUD, affectation manuelle) | Authentifié |
 | `/concours` | Gestion des concours | Authentifié |
 | `/lieux` | Centres / établissements / salles | Authentifié |
-| `/repartition` | Répartition automatique + historique | Authentifié (run/reset : GESTIONNAIRE) |
-| `/convocations` | Convocations PDF + envoi e-mail | Authentifié (envoi : GESTIONNAIRE) |
+| `/repartition` | Répartition automatique + historique + export PDF/DOCX | Authentifié (run/reset : GESTIONNAIRE) |
+| `/convocations` | Convocations (aperçu, PDF serveur, envoi e-mail, export PDF/DOCX) | Authentifié (envoi : GESTIONNAIRE) |
 | `/gestionnaires` | Gestion des comptes gestionnaires | Authentifié (ADMINISTRATEUR) |
+
+Le JWT est stocké en **sessionStorage** (`pfe_access_token`) : la session expire à la
+fermeture de l'onglet du navigateur.
 
 L'interface masque les actions d'écriture pour le rôle **ADMINISTRATEUR** (badge « lecture seule »
 dans l'en-tête). La page `/gestionnaires` n'apparaît que pour les administrateurs.
@@ -291,7 +310,8 @@ Couverture de tests backend (unitaires / slice) :
   Spring Security, Spring Data JPA, Flyway, Apache POI (import Excel), OpenPDF (génération
   des convocations PDF), Spring Mail / SMTP Gmail (envoi des convocations), jjwt 0.12.6,
   Java 17, Maven (multi-module).
-- **Frontend** : React 19, TypeScript, Vite 6, axios, react-router-dom 6.
+- **Frontend** : React 19, TypeScript, Vite 6, axios, react-router-dom 6, jspdf +
+  jspdf-autotable, docx (exports PDF/DOCX côté client).
 - **Base de données** : PostgreSQL (schémas versionnés par Flyway).
 
 ## Licence

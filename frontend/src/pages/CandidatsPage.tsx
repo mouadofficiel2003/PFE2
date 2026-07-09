@@ -1,5 +1,13 @@
 import axios from "axios";
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+} from "react";
 import {
   deleteCandidat,
   fetchCandidats,
@@ -62,6 +70,9 @@ export default function CandidatsPage() {
   const [centreNameById, setCentreNameById] = useState<Map<number, string>>(new Map());
   const [etabNameById, setEtabNameById] = useState<Map<number, string>>(new Map());
   const [salleNameById, setSalleNameById] = useState<Map<number, string>>(new Map());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterVille, setFilterVille] = useState("");
+  const [filterConcours, setFilterConcours] = useState("");
 
   const loadList = useCallback(async () => {
     setLoading(true);
@@ -150,6 +161,50 @@ export default function CandidatsPage() {
       cancelled = true;
     };
   }, []);
+
+  const villesDisponibles = useMemo(() => {
+    if (!candidats) return [];
+    const seen = new Map<string, string>();
+    for (const c of candidats) {
+      const trimmed = c.ville?.trim();
+      if (!trimmed) continue;
+      const key = trimmed.toLowerCase();
+      if (!seen.has(key)) seen.set(key, trimmed);
+    }
+    return Array.from(seen.values()).sort((a, b) => a.localeCompare(b, "fr"));
+  }, [candidats]);
+
+  const filteredCandidats = useMemo(() => {
+    if (!candidats) return [];
+    const q = searchQuery.trim().toLowerCase();
+    return candidats.filter((c) => {
+      if (filterVille && c.ville?.trim().toLowerCase() !== filterVille.toLowerCase()) {
+        return false;
+      }
+      if (filterConcours && c.numeroConcours !== filterConcours) {
+        return false;
+      }
+      if (!q) return true;
+      const haystack = [
+        c.nom,
+        c.prenom,
+        c.cin,
+        c.numeroInscription,
+        c.email,
+        c.numeroTelephone,
+        c.ville,
+        c.specialite,
+        c.nomConcours,
+        c.numeroConcours,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [candidats, searchQuery, filterVille, filterConcours]);
+
+  const hasActiveFilters = searchQuery.trim() !== "" || filterVille !== "" || filterConcours !== "";
 
   if (state.status !== "authenticated") {
     return null;
@@ -363,6 +418,12 @@ export default function CandidatsPage() {
     ? sallesDisponibles.find((s) => s.idSalle === editForm.idSalle) ?? null
     : null;
 
+  function resetFilters() {
+    setSearchQuery("");
+    setFilterVille("");
+    setFilterConcours("");
+  }
+
   return (
     <div style={page}>
       <AppHeader />
@@ -419,11 +480,67 @@ export default function CandidatsPage() {
           ) : null}
           {!loading && !loadError && candidats && candidats.length > 0 ? (
             <>
+              <div style={filterBar}>
+                <label style={filterField}>
+                  <span style={filterLabel}>Rechercher</span>
+                  <input
+                    style={filterInput}
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Nom, prénom, CIN, n° inscription…"
+                    aria-label="Rechercher un candidat"
+                  />
+                </label>
+                <label style={filterField}>
+                  <span style={filterLabel}>Ville</span>
+                  <select
+                    style={filterInput}
+                    value={filterVille}
+                    onChange={(e) => setFilterVille(e.target.value)}
+                    aria-label="Filtrer par ville"
+                  >
+                    <option value="">Toutes les villes</option>
+                    {villesDisponibles.map((ville) => (
+                      <option key={ville} value={ville}>
+                        {ville}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label style={filterField}>
+                  <span style={filterLabel}>Concours</span>
+                  <select
+                    style={filterInput}
+                    value={filterConcours}
+                    onChange={(e) => setFilterConcours(e.target.value)}
+                    aria-label="Filtrer par concours"
+                  >
+                    <option value="">Tous les concours</option>
+                    {concoursList.map((co) => (
+                      <option key={co.numeroConcours} value={co.numeroConcours}>
+                        {co.nomConcours}
+                        {co.numeroConcours ? ` (${co.numeroConcours})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {hasActiveFilters ? (
+                  <button type="button" style={btnClearFilters} onClick={resetFilters}>
+                    Effacer les filtres
+                  </button>
+                ) : null}
+              </div>
               <p style={countLine}>
-                {candidats.length} candidat{candidats.length > 1 ? "s" : ""}
+                {hasActiveFilters
+                  ? `${filteredCandidats.length} candidat${filteredCandidats.length > 1 ? "s" : ""} sur ${candidats.length}`
+                  : `${candidats.length} candidat${candidats.length > 1 ? "s" : ""}`}
               </p>
+              {filteredCandidats.length === 0 ? (
+                <p style={muted}>Aucun candidat ne correspond à votre recherche ou aux filtres sélectionnés.</p>
+              ) : (
               <div style={cardGrid}>
-                {candidats.map((c) => {
+                {filteredCandidats.map((c) => {
                   const initials =
                     `${(c.prenom?.[0] ?? "").toUpperCase()}${(c.nom?.[0] ?? "").toUpperCase()}` || "?";
                   const affecte = isCandidatAffecte(c);
@@ -524,6 +641,7 @@ export default function CandidatsPage() {
                   );
                 })}
               </div>
+              )}
             </>
           ) : null}
         </section>
@@ -859,6 +977,55 @@ const countLine: CSSProperties = {
   fontSize: "0.85rem",
   fontWeight: 600,
   color: "#64748b",
+};
+
+const filterBar: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "flex-end",
+  gap: "0.75rem 1rem",
+  marginBottom: "1rem",
+  padding: "1rem",
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  borderRadius: "10px",
+};
+
+const filterField: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "0.25rem",
+  flex: "1 1 180px",
+  minWidth: "160px",
+};
+
+const filterLabel: CSSProperties = {
+  fontSize: "0.75rem",
+  fontWeight: 600,
+  color: "#64748b",
+  textTransform: "uppercase",
+  letterSpacing: "0.03em",
+};
+
+const filterInput: CSSProperties = {
+  padding: "0.5rem 0.65rem",
+  borderRadius: "8px",
+  border: "1px solid #cbd5e1",
+  fontSize: "0.875rem",
+  background: "#fff",
+};
+
+const btnClearFilters: CSSProperties = {
+  padding: "0.5rem 0.85rem",
+  borderRadius: "8px",
+  border: "1px solid #cbd5e1",
+  background: "#fff",
+  color: "#475569",
+  cursor: "pointer",
+  fontWeight: 600,
+  fontSize: "0.8125rem",
+  flexShrink: 0,
+  alignSelf: "flex-end",
 };
 
 const cardGrid: CSSProperties = {

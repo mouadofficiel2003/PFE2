@@ -4,13 +4,17 @@
 > (exam/competition management). Intended as onboarding context for developers
 > and AI agents working on this codebase.
 >
-> Last reviewed: **2026-06-25** — backend tests and frontend build verified OK.
+> Last reviewed: **2026-07-09** — backend tests (`.\mvnw.cmd test`) and frontend build
+> (`npm run build`) verified OK.
 
 ## Overview
 
-This is a **full-stack microservices application** for managing exams/competitions
-("concours"), candidates, exam locations, automatic seat allocation, and e-mailing of
-candidate **convocations** (exam summons). It is built as:
+This is a **PFE (Projet de Fin d'Études) platform** for the **dématérialisation de la
+gestion des candidatures** — managing exams/competitions ("concours"), candidates, exam
+locations, automatic seat allocation, and e-mailing of candidate **convocations** (exam
+summons). Original requirements live in `projet.txt` at the repository root.
+
+It is built as:
 
 - **Frontend**: React 19 + TypeScript (Vite), single-page app on port `5173`.
 - **Backend**: 6 independent Spring Boot 3.4.4 services (Java 17) behind a
@@ -133,20 +137,37 @@ that hit the Vite dev proxy (or a production reverse proxy pointed at the gatewa
 
 ```
 frontend/src/
-├── api/              # Axios clients per domain (candidats, concours, lieux, repartition, convocations)
+├── api/              # Axios clients per domain (candidats, concours, lieux, repartition, convocations, gestionnaires)
 ├── auth/             # AuthContext, RequireAuth, token storage, session restore via GET /auth/me
-├── components/       # AppHeader (nav + role badge), Brand, shared UI
-└── pages/            # One page per business area (Candidats, Concours, Lieux, Repartition, Convocations, Gestionnaires)
+├── components/       # AppHeader (nav + role badge), Brand (MEF logo), shared UI
+├── pages/            # One page per business area
+└── utils/            # Client-side PDF/DOCX export helpers (repartition, convocations)
 ```
+
+Static assets: `frontend/public/mef-logo.png` — Ministère de l'Économie et des Finances branding
+used by `Brand.tsx` in the header and login page.
 
 Routing (`App.tsx`):
 
 | Route            | Component          | Notes |
 | ---------------- | ------------------ | ----- |
-| `/`              | `RootRedirect`     | → `/candidats` if authenticated, else `/login` |
+| `/`              | `RootRedirect`     | → `/dashboard` if authenticated, else `/login` |
 | `/login`         | `LoginPage`        | Public |
+| `/dashboard`     | `DashboardPage`    | Aggregated KPIs across all services |
 | `/candidats` … `/convocations` | Business pages | Wrapped in `RequireAuth` |
 | `/gestionnaires` | `GestionnairesPage`| Extra guard: `ADMINISTRATEUR` only |
+
+### Page responsibilities
+
+| Page | Key features |
+| ---- | ------------ |
+| **Dashboard** | Cross-service overview: candidate counts, seat fill rates per competition, centre/salle capacity, latest repartition run status and alerts, convocation send history. Links to detail pages. |
+| **Candidats** | List, Excel import, CRUD, manual seat assignment, reset list. |
+| **Concours** | CRUD competitions, assign centres by `id_centre`. |
+| **Lieux** | Manage centres → établissements → salles hierarchy. |
+| **Répartition** | Trigger auto-allocation (`POST /run`), reset affectations, browse run history, **export run results to PDF/DOCX** (`utils/repartitionExport.ts`). |
+| **Convocations** | Preview seated candidates, download individual server PDFs, bulk e-mail send, send history, **export preview list to PDF/DOCX** (`utils/convocationsExport.ts`). |
+| **Gestionnaires** | Admin-only CRUD on gestionnaire accounts. |
 
 **Role-aware UI**: each business page checks `user.role === "ADMINISTRATEUR"` and hides
 write actions (create, edit, delete, import, run repartition, send convocations).
@@ -177,7 +198,8 @@ JWT as a `Bearer` token to every request via a request interceptor.
 
 1. User posts to `POST /auth/login` on auth-service. It verifies the bcrypt password
    and issues a signed JWT (subject = username, custom `role` claim).
-2. Frontend stores the token (localStorage) and sends it as `Bearer` on every request.
+2. Frontend stores the token in **sessionStorage** (`pfe_access_token`) and sends it as
+   `Bearer` on every request. The session ends when the browser tab is closed.
 3. **Each resource service validates the JWT itself** using the same shared secret
    (`auth.jwt.secret`, identical in all six resource services). There is no
    call back to auth-service to validate tokens. The secret is externalized as
@@ -420,6 +442,7 @@ Downstream failures are translated consistently:
 | GET    | `/{numeroInscription}/pdf`    | read roles    | One candidate's convocation as a PDF (inline) |
 | POST   | `/envoyer`                    | GESTIONNAIRE  | Send all convocations by e-mail (bulk)        |
 | GET    | `/envois`                     | read roles    | Send history (per e-mail attempt)             |
+| POST   | `/envois/reinitialiser`       | GESTIONNAIRE  | Clear all send history                        |
 
 ## Architecture diagram
 
@@ -487,7 +510,8 @@ node scripts/plantuml-png.mjs diagramme-cas-utilisation-general.puml diagramme-c
   Spring Security, Spring Data JPA, Flyway, Apache POI (Excel import in
   candidat-service), OpenPDF (convocation PDFs) + Spring Mail / Gmail SMTP (in
   convocation-service), jjwt 0.12.6, Java 17, Maven (multi-module).
-- **Frontend**: React 19, TypeScript, Vite 6, axios, react-router-dom 6.
+- **Frontend**: React 19, TypeScript, Vite 6, axios, react-router-dom 6, jspdf +
+  jspdf-autotable + docx (client-side PDF/DOCX exports on répartition and convocations pages).
 - **Database**: PostgreSQL 14+ (candidat trigger uses `EXECUTE FUNCTION`).
 
 ## Testing
@@ -505,6 +529,61 @@ Frontend: `npm run build` runs TypeScript checking and the production bundle.
 
 There are no end-to-end or integration tests that spin up all services together;
 local verification relies on manual flows or the demo seed script.
+
+## Local development & deployment
+
+There is **no Docker / Kubernetes / docker-compose** in the repository. Local dev
+relies on PowerShell scripts:
+
+| Script | Purpose |
+| ------ | ------- |
+| `verify-env.ps1` | Checks Java 17+, Maven, Node.js, PostgreSQL |
+| `backend/run-backend.ps1` | Starts gateway + 6 services in separate PowerShell windows |
+| `frontend/run-dev.ps1` | Starts Vite dev server on port 5173 |
+| `scripts/seed-demo-data.ps1` | Seeds demo centres, concours, salles via direct API calls |
+
+Production deployment is not containerized in-repo: each service is a standalone Spring Boot
+JAR; the SPA is a static Vite build served behind a reverse proxy pointing at the gateway.
+
+## Environment configuration
+
+### Backend (per-service `application.properties`)
+
+| Variable | Purpose | Default (dev) |
+| -------- | ------- | ------------- |
+| `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | PostgreSQL per service | `localhost:5432/<service-db>`, `postgres`/`postgres` |
+| `JWT_SECRET` | Shared HS256 secret | Dev placeholder (≥ 32 bytes) — **same value on all 6 resource services** |
+| `AUTH_SERVICE_URI` … `CONVOCATION_SERVICE_URI` | Gateway downstream URIs | `http://localhost:8081`–`8086` |
+| `concours.service.base-url`, etc. | Inter-service RestClient targets | Hardcoded localhost ports |
+| `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM` | Gmail SMTP (convocation-service) | Empty → send returns `503` |
+| `CONVOCATION_ZONE` | Timezone for exam dates in PDFs/e-mails | `Africa/Casablanca` |
+| `CONVOCATION_ENVOI_PARALLELISM` | Parallel SMTP workers | `3` |
+
+Optional local overrides: copy `application-local.properties.example` →
+`application-local.properties` (gitignored) in gateway, candidat, repartition, or
+convocation modules.
+
+### Frontend (Vite)
+
+From `frontend/.env.example`:
+
+| Variable | Purpose |
+| -------- | ------- |
+| `VITE_GATEWAY_ORIGIN` | Vite dev proxy target (default `http://localhost:8080`) |
+| `VITE_CANDIDAT_API_BASE_URL` | Optional absolute API base for production (empty in dev) |
+
+## Client-side exports vs server PDFs
+
+Two PDF generation paths coexist by design:
+
+| Feature | Mechanism | Where |
+| ------- | --------- | ----- |
+| Single convocation PDF | Server-side OpenPDF | `GET /api/convocations/{numeroInscription}/pdf` |
+| Bulk convocation list export | Client-side jspdf + docx | `utils/convocationsExport.ts` on Convocations page |
+| Repartition run export | Client-side jspdf + docx | `utils/repartitionExport.ts` on Répartition page |
+
+Server PDFs mirror the official convocation layout for e-mail attachments; client exports
+let gestionnaires download tabular summaries without an extra backend endpoint.
 
 ## Key design choices & trade-offs
 
@@ -536,8 +615,9 @@ local verification relies on manual flows or the demo seed script.
 | Folder           | Description                                                       |
 | ---------------- | ----------------------------------------------------------------- |
 | `backend/`       | API gateway + Spring Boot microservices                           |
-| `frontend/`      | React + TypeScript (Vite) single-page app                         |
+| `frontend/`      | React + TypeScript (Vite) SPA « CandidatPlus », exports PDF/DOCX |
 | `database/`      | Flyway migration documentation (scripts live in each service)     |
 | `scripts/`       | Demo seed script, PlantUML PNG generator, sample JSON bodies      |
 | `diagramme-*.puml` | UML diagrams (use cases, classes, sequences)                    |
+| `projet.txt`     | Original PFE requirements and domain attribute definitions        |
 | `verify-env.ps1` | Dev environment checker (Java, Maven, Node, PostgreSQL)           |
