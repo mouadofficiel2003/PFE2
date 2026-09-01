@@ -28,6 +28,10 @@ applique ses migrations au démarrage (table flyway_schema_history dans la base 
       V1__init_repartition.sql — historique runs, affectations, alertes (refs logiques)
       V2__repartition_run_message.sql — colonne message sur repartition_run (échecs)
 
+  • Convocations (base data_convocations)
+      backend/convocation-service/src/main/resources/db/migration/
+      V1__init_convocation.sql — table convocation_envoi (tentatives ENVOYE / ECHEC)
+
 Identifiants partagés (références logiques, pas de FK inter-bases)
 ------------------------------------------------------------------
   numero_inscription  — candidat (PK candidat-service)
@@ -39,7 +43,8 @@ Identifiants partagés (références logiques, pas de FK inter-bases)
 Ordre d'exploitation
 --------------------
   1. Créer les bases PostgreSQL vides (CREATE DATABASE …) :
-       PFE_Data, data_candidats, data_concours, data_lieux, data_repartition.
+       PFE_Data, data_candidats, data_concours, data_lieux, data_repartition,
+       data_convocations.
   2. Démarrer les services (run-backend.ps1 ou un par un). Flyway s'exécute au boot.
      L'ordre entre services n'a pas d'importance pour Flyway (bases indépendantes).
 
@@ -48,8 +53,9 @@ Ordre logique pour les données métier (après migration)
   1. Centres (lieux-service)
   2. Concours + affectation centres par id_centre (concours-service)
   3. Établissements et salles liées à un numero_concours (lieux-service)
-  4. Candidats (candidat-service — import Excel ou CRUD)
+  4. Candidats (candidat-service — import Excel ou mise à jour)
   5. Répartition (repartition-service — POST /api/repartition/run)
+  6. Convocations (convocation-service — aperçu puis POST /api/convocations/envoyer)
 
 Évolution du schéma
 -------------------

@@ -9,7 +9,7 @@ frontend/dist-ssr/
 .env.local
 .env.*.local
 !**/.env.example
-**/application-local.properties
+local-env.ps1
 
 # Logs
 *.log

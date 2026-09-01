@@ -9,51 +9,58 @@ actor "Administrateur" as A
 
 rectangle "Système de dématérialisation\nde la gestion des candidatures" {
 
-  usecase "S'authentifier" as UC1
-  usecase "Importer les candidats admis\n(fichier Excel)" as UC2
-  usecase "Gérer les candidats" as UC3
-  usecase "Gérer les concours" as UC4
-  usecase "Gérer centres, établissements et salles" as UC5
-  usecase "Répartition automatique\ndes candidats aux salles" as UC6
-  usecase "Répartition manuelle\ndes candidats aux salles" as UC7
-  usecase "Générer les convocations" as UC8
-  usecase "Envoyer les convocations\npar e-mail" as UC9
-  usecase "Consulter tableau de bord\net statistiques" as UC10
-  usecase "Consulter l'application" as UC11
-  usecase "Gérer les rôles et les gestionnaires" as UC12
-  usecase "Accéder à toute la base de données" as UC13
-  usecase "Suivi et contrôle" as UC14
+  usecase "S'authentifier" as UC_Auth
+
+  usecase "Consulter le tableau de bord" as UC_Dashboard
+
+  usecase "Consulter la liste\ndes candidats" as UC_Candidats_List
+  usecase "Consulter la liste\ndes concours" as UC_Concours_List
+  usecase "Consulter la liste des centres,\nétablissements et salles" as UC_Lieux_List
+  usecase "Consulter la répartition" as UC_Repartition_Consult
+  usecase "Consulter la liste\ndes convocations" as UC_Convocations_List
+
+  usecase "Gérer les candidats" as UC_Candidats_Gest
+  usecase "Gérer les concours" as UC_Concours_Gest
+  usecase "Gérer centres, établissements\net lieux" as UC_Lieux_Gest
+  usecase "Lancer la répartition" as UC_Repartition_Launch
+  usecase "Gérer les convocations" as UC_Convocations_Gest
+  usecase "Gérer les comptes" as UC_Comptes_Gest
 }
 
-G --> UC1
-G --> UC2
-G --> UC3
-G --> UC4
-G --> UC5
-G --> UC6
-G --> UC7
-G --> UC8
-G --> UC9
-G --> UC10
+' --- Administrateur ---
+A --> UC_Dashboard
+A --> UC_Candidats_List
+A --> UC_Concours_List
+A --> UC_Lieux_List
+A --> UC_Repartition_Consult
+A --> UC_Convocations_List
+A --> UC_Comptes_Gest
 
-A --> UC1
-A --> UC11
-A --> UC12
-A --> UC13
-A --> UC14
+' --- Gestionnaire ---
+G --> UC_Dashboard
+G --> UC_Candidats_List
+G --> UC_Concours_List
+G --> UC_Lieux_List
+G --> UC_Convocations_List
+G --> UC_Candidats_Gest
+G --> UC_Concours_Gest
+G --> UC_Lieux_Gest
+G --> UC_Repartition_Launch
+G --> UC_Repartition_Consult
+G --> UC_Convocations_Gest
 
-note right of UC6
-  La répartition automatique tient compte du
-  numéro de concours, de la ville du concours,
-  de la ville du candidat et de la capacité des salles.
-end note
-
-note bottom of A
-  L'administrateur consulte l'application et la base,
-  assure le suivi et le contrôle, mais n'exécute pas
-  les actions métier du gestionnaire (import, gestion
-  des candidats/concours/lieux, répartitions, convocations),
-  sauf pour la gestion des rôles et des gestionnaires.
-end note
+' --- Authentification requise pour toutes les actions ---
+UC_Dashboard ..> UC_Auth : <<include>>
+UC_Candidats_List ..> UC_Auth : <<include>>
+UC_Concours_List ..> UC_Auth : <<include>>
+UC_Lieux_List ..> UC_Auth : <<include>>
+UC_Repartition_Consult ..> UC_Auth : <<include>>
+UC_Convocations_List ..> UC_Auth : <<include>>
+UC_Candidats_Gest ..> UC_Auth : <<include>>
+UC_Concours_Gest ..> UC_Auth : <<include>>
+UC_Lieux_Gest ..> UC_Auth : <<include>>
+UC_Repartition_Launch ..> UC_Auth : <<include>>
+UC_Convocations_Gest ..> UC_Auth : <<include>>
+UC_Comptes_Gest ..> UC_Auth : <<include>>
 
 @enduml

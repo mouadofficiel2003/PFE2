@@ -52,7 +52,7 @@ spring:
             - Path=/api/convocations/**
 
 server:
-  port: 8080
+  port: ${GATEWAY_PORT:8080}
 
 management:
   endpoints:

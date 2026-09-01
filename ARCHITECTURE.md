@@ -4,8 +4,8 @@
 > (exam/competition management). Intended as onboarding context for developers
 > and AI agents working on this codebase.
 >
-> Last reviewed: **2026-07-09** — backend tests (`.\mvnw.cmd test`) and frontend build
-> (`npm run build`) verified OK.
+> Last reviewed: **2026-09-01** — backend tests (`.\mvnw.cmd test`, 34 tests) and frontend
+> build (`npm run build`) verified OK.
 
 ## Overview
 
@@ -36,7 +36,7 @@ In dev, the Vite proxy forwards the browser's relative paths to the gateway.
 | --------------------- | ----- | ------------------ | --------------------------------------------------- |
 | `api-gateway`         | 8080  | —                  | Single entry point: path-based routing, CORS        |
 | `auth-service`        | 8081  | `PFE_Data`         | Login, JWT issuance, user accounts                  |
-| `candidat-service`    | 8082  | `data_candidats`   | Candidates CRUD + Excel import + batch affectation  |
+| `candidat-service`    | 8082  | `data_candidats`   | Candidates: Excel import, update/delete, batch affectation |
 | `concours-service`    | 8083  | `data_concours`    | Competitions + centre assignments                   |
 | `lieux-service`       | 8084  | `data_lieux`       | Locations: centres, établissements, salles          |
 | `repartition-service` | 8085  | `data_repartition` | Automatic seat allocation (orchestration + history) |
@@ -44,7 +44,8 @@ In dev, the Vite proxy forwards the browser's relative paths to the gateway.
 
 The gateway (`backend/api-gateway`, package `com.pfe.gateway`) is a reactive
 Spring Cloud Gateway app. It owns **no database** and **no JWT validation** — it is
-a stateless reverse proxy. Routes are declared in `application.yml`:
+a stateless reverse proxy. Listen port is `${GATEWAY_PORT:8080}` so Apache/XAMPP
+can keep 8080. Routes are declared in `application.yml`:
 
 | Path prefix                                              | Routed to          |
 | ------------------------------------------------------- | ------------------ |
@@ -162,7 +163,7 @@ Routing (`App.tsx`):
 | Page | Key features |
 | ---- | ------------ |
 | **Dashboard** | Cross-service overview: candidate counts, seat fill rates per competition, centre/salle capacity, latest repartition run status and alerts, convocation send history. Links to detail pages. |
-| **Candidats** | List, Excel import, CRUD, manual seat assignment, reset list. |
+| **Candidats** | List, Excel import (creation), update, delete, manual seat assignment, reset list. There is no `POST /api/candidats`. |
 | **Concours** | CRUD competitions, assign centres by `id_centre`. |
 | **Lieux** | Manage centres → établissements → salles hierarchy. |
 | **Répartition** | Trigger auto-allocation (`POST /run`), reset affectations, browse run history, **export run results to PDF/DOCX** (`utils/repartitionExport.ts`). |
@@ -184,7 +185,9 @@ which clears the token and returns the user to an anonymous state.
 
 The browser only ever calls relative paths. In dev, `vite.config.ts` proxies every
 known prefix to a **single target, the API gateway** (`http://localhost:8080`,
-overridable via `VITE_GATEWAY_ORIGIN`):
+overridable via `VITE_GATEWAY_ORIGIN`). The proxy rewrites `localhost` → `127.0.0.1`
+and uses an HTTP keep-alive agent: Node's parser plus Spring Cloud Gateway (Netty)
+can otherwise fail with `Parse Error: Data after Connection: close`.
 
 - `/auth`, `/api/candidats`, `/api/concours`, `/api/centres`,
   `/api/etablissements`, `/api/salles`, `/api/repartition`, `/api/convocations` → api-gateway (8080)
@@ -199,7 +202,8 @@ JWT as a `Bearer` token to every request via a request interceptor.
 1. User posts to `POST /auth/login` on auth-service. It verifies the bcrypt password
    and issues a signed JWT (subject = username, custom `role` claim).
 2. Frontend stores the token in **sessionStorage** (`pfe_access_token`) and sends it as
-   `Bearer` on every request. The session ends when the browser tab is closed.
+   `Bearer` on every request. The session ends when the browser tab is closed. Tokens
+   expire after 24 hours (`auth.jwt.expiration-ms=86400000`).
 3. **Each resource service validates the JWT itself** using the same shared secret
    (`auth.jwt.secret`, identical in all six resource services). There is no
    call back to auth-service to validate tokens. The secret is externalized as
@@ -299,8 +303,9 @@ repartition) yield a convocation. On `POST /api/convocations/envoyer` (gestionna
 convocation is rendered to **PDF** (OpenPDF) and e-mailed (Spring Mail over Gmail SMTP) as an
 attachment; every attempt is persisted as a `convocation_envoi` row (`ENVOYE` / `ECHEC`). Sending is
 **per-candidate independent** — one failure (missing/invalid e-mail, SMTP error) never aborts the
-batch. Sending requires `MAIL_USERNAME` / `MAIL_PASSWORD` (Gmail app password); without them the
-endpoint returns `503`.
+batch. Transient SMTP errors are retried (`CONVOCATION_ENVOI_RETRY_MAX` / delay). Sending requires
+`MAIL_USERNAME` / `MAIL_PASSWORD` (Gmail app password); without them the endpoint returns `503`.
+The SPA uses a 5-minute timeout for `POST /api/convocations/envoyer` (default Axios timeout is 20 s).
 
 #### Repartition algorithm
 
@@ -390,7 +395,7 @@ Downstream failures are translated consistently:
 | PATCH  | `/affectations`               | GESTIONNAIRE  | Batch seat assignment (repartition) |
 | DELETE | `/{numeroInscription}`        | GESTIONNAIRE  | Delete candidate               |
 | DELETE | `/`                           | GESTIONNAIRE  | Clear the whole candidate list (reset) |
-| POST   | `/import` (multipart)         | GESTIONNAIRE  | Excel import                   |
+| POST   | `/import` (multipart)         | GESTIONNAIRE  | Excel import (**creates** candidates) |
 
 ### concours-service (`/api/concours`)
 
@@ -498,7 +503,8 @@ When seeding data manually (or via `scripts/seed-demo-data.ps1`):
 
 Twelve PlantUML source files live at the repository root (`diagramme-*.puml`), covering
 use cases, class models, and sequence flows (auth, candidats, concours, lieux, repartition,
-convocations). PNG exports are not committed; generate them with:
+convocations). The general use-case PNG is committed (`diagramme-cas-utilisation-general.png`);
+other PNGs can be generated with:
 
 ```powershell
 node scripts/plantuml-png.mjs diagramme-cas-utilisation-general.puml diagramme-cas-utilisation-general.png
@@ -516,14 +522,17 @@ node scripts/plantuml-png.mjs diagramme-cas-utilisation-general.puml diagramme-c
 
 ## Testing
 
-Backend tests (run from `backend/` with `.\mvnw.cmd test`):
+Backend tests (run from `backend/` with `.\mvnw.cmd test` — Surefire, `*Test.java`):
 
 | Module              | Test focus |
 | ------------------- | ---------- |
-| candidat-service    | Concours resolution on import/update |
-| concours-service    | Lieux validation, HTTP client, controller security |
-| lieux-service       | Concours existence client |
-| repartition-service | Allocation planner, Moroccan geo referential, distance edge cases |
+| candidat-service    | Concours resolution on import/update (5) |
+| concours-service    | Lieux validation, HTTP client, controller security (13) |
+| lieux-service       | Concours existence client (7) |
+| repartition-service | Allocation planner, Moroccan geo referential, distance edge cases (9) |
+
+`LieuxJpaRepositoriesIT` is a DataJpaTest slice; it is **not** run by Surefire (Failsafe
+`*IT` naming). auth, gateway and convocation have no unit tests.
 
 Frontend: `npm run build` runs TypeScript checking and the production bundle.
 
@@ -538,9 +547,10 @@ relies on PowerShell scripts:
 | Script | Purpose |
 | ------ | ------- |
 | `verify-env.ps1` | Checks Java 17+, Maven, Node.js, PostgreSQL |
-| `backend/run-backend.ps1` | Starts gateway + 6 services in separate PowerShell windows |
+| `backend/run-backend.ps1` | Starts gateway + 6 services in separate PowerShell windows; sources root `local-env.ps1` if present |
 | `frontend/run-dev.ps1` | Starts Vite dev server on port 5173 |
 | `scripts/seed-demo-data.ps1` | Seeds demo centres, concours, salles via direct API calls |
+| `local-env.ps1` (gitignored) | Local env: `DB_PASSWORD`, `GATEWAY_PORT`, `MAIL_*`, `JWT_SECRET` |
 
 Production deployment is not containerized in-repo: each service is a standalone Spring Boot
 JAR; the SPA is a static Vite build served behind a reverse proxy pointing at the gateway.
@@ -551,17 +561,20 @@ JAR; the SPA is a static Vite build served behind a reverse proxy pointing at th
 
 | Variable | Purpose | Default (dev) |
 | -------- | ------- | ------------- |
-| `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | PostgreSQL per service | `localhost:5432/<service-db>`, `postgres`/`postgres` |
+| `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | PostgreSQL per service | `localhost:5432/<service-db>`, `postgres`/`postgres` (override `DB_PASSWORD` in `local-env.ps1` if needed) |
 | `JWT_SECRET` | Shared HS256 secret | Dev placeholder (≥ 32 bytes) — **same value on all 6 resource services** |
+| `GATEWAY_PORT` | Gateway listen port | `8080` |
 | `AUTH_SERVICE_URI` … `CONVOCATION_SERVICE_URI` | Gateway downstream URIs | `http://localhost:8081`–`8086` |
 | `concours.service.base-url`, etc. | Inter-service RestClient targets | Hardcoded localhost ports |
 | `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM` | Gmail SMTP (convocation-service) | Empty → send returns `503` |
 | `CONVOCATION_ZONE` | Timezone for exam dates in PDFs/e-mails | `Africa/Casablanca` |
 | `CONVOCATION_ENVOI_PARALLELISM` | Parallel SMTP workers | `3` |
+| `CONVOCATION_ENVOI_RETRY_MAX`, `CONVOCATION_ENVOI_RETRY_DELAY_MS` | Transient SMTP retries | `3` / `3000` ms |
 
-Optional local overrides: copy `application-local.properties.example` →
-`application-local.properties` (gitignored) in gateway, candidat, repartition, or
-convocation modules.
+`application-local.properties.example` files exist in each module, but Spring Boot does
+**not** load `application-local.properties` unless a `local` profile or
+`spring.config.import` is set. Use **`local-env.ps1`** (sourced by `run-backend.ps1`)
+or process environment variables.
 
 ### Frontend (Vite)
 
@@ -621,3 +634,4 @@ let gestionnaires download tabular summaries without an extra backend endpoint.
 | `diagramme-*.puml` | UML diagrams (use cases, classes, sequences)                    |
 | `projet.txt`     | Original PFE requirements and domain attribute definitions        |
 | `verify-env.ps1` | Dev environment checker (Java, Maven, Node, PostgreSQL)           |
+| `local-env.ps1`  | Gitignored local overrides, loaded by `run-backend.ps1`           |

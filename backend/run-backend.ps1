@@ -11,6 +11,12 @@
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
+$localEnvPath = Join-Path (Split-Path $PSScriptRoot -Parent) "local-env.ps1"
+if (Test-Path $localEnvPath) {
+    . $localEnvPath
+    Write-Host "Loaded local-env.ps1" -ForegroundColor DarkGray
+}
+
 $mvnwCmd = Join-Path $PSScriptRoot "mvnw.cmd"
 if (Test-Path $mvnwCmd) {
     $maven = $mvnwCmd
@@ -62,7 +68,9 @@ if (Test-Path $mvnwCmd) {
     $runConvocation = "`$env:JAVA_HOME='$javaHomeEsc'; Set-Location -LiteralPath '$rootEsc'; mvn -pl convocation-service spring-boot:run"
 }
 
-Write-Host "Demarrage api-gateway sur http://localhost:8080 (nouvelle fenetre)..." -ForegroundColor Cyan
+$gatewayPort = if ($env:GATEWAY_PORT) { $env:GATEWAY_PORT } else { "8080" }
+
+Write-Host "Demarrage api-gateway sur http://localhost:$gatewayPort (nouvelle fenetre)..." -ForegroundColor Cyan
 Start-Process powershell.exe -WorkingDirectory $PSScriptRoot -ArgumentList @(
     "-NoExit",
     "-NoLogo",

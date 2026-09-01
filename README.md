@@ -18,34 +18,39 @@ des **convocations** par e-mail, avec authentification JWT.
 
 ## État du projet
 
-Revu le **9 juillet 2026** — le dépôt est cohérent et prêt pour le développement local :
+Revu le **1er septembre 2026** — architecture et code alignés ; tests et build OK :
 
 | Vérification | Résultat |
 |--------------|----------|
 | Modules Maven (gateway + 6 services) | 7 modules alignés dans `backend/pom.xml` |
-| Tests backend (`.\mvnw.cmd test`) | OK — 8 classes de tests (candidat, concours, lieux, repartition) |
-| Build frontend (`npm run build`) | OK — TypeScript + bundle Vite |
-| Routage gateway ↔ services | Préfixes documentés = `application.yml` |
+| Tests backend (`.\mvnw.cmd test`) | OK — 8 classes Surefire, 34 tests (candidat, concours, lieux, repartition) |
+| Build frontend (`npm run build`) | OK — TypeScript + bundle Vite 6 |
+| Routage gateway ↔ services | Préfixes = `application.yml` = proxy Vite |
 | Migrations Flyway | 9 scripts répartis sur les 6 services |
-| TODO / FIXME dans le code | Aucun repéré |
+| TODO / FIXME dans le code | Aucun |
 
-Fonctionnalités récentes côté frontend :
+Fonctionnalités côté frontend :
 
-- **Tableau de bord** (`/dashboard`) — agrégation des indicateurs (candidats, remplissage
+- **Tableau de bord** (`/dashboard`) — indicateurs agrégés (candidats, remplissage
   des salles, dernière répartition, historique des envois).
-- **Exports client** — téléchargement PDF/DOCX des résultats de répartition et des
-  convocations (`jspdf`, `docx`).
-- **Identité visuelle MEF** — logo officiel dans l'en-tête et la page de connexion
+- **Exports client** — PDF/DOCX des résultats de répartition et des convocations
+  (`jspdf`, `docx`).
+- **Identité visuelle MEF** — logo dans l'en-tête et la page de connexion
   (`frontend/public/mef-logo.png`).
 
 Points d'attention (non bloquants) :
 
-- Les diagrammes UML sont fournis en **sources PlantUML** (`.puml`) ; les PNG ne sont
-  pas versionnés — génération optionnelle via `scripts/plantuml-png.mjs`.
+- Les diagrammes UML sont fournis en **sources PlantUML** (`.puml`). Un PNG est
+  versionné (`diagramme-cas-utilisation-general.png`) ; les autres se régénèrent
+  avec `scripts/plantuml-png.mjs`.
 - L'envoi de convocations nécessite `MAIL_USERNAME` / `MAIL_PASSWORD` (Gmail) ;
-  sans cela le service démarre mais renvoie `503` à l'envoi.
+  sans cela le service démarre mais l'envoi renvoie `503`.
 - La répartition n'est **pas atomique** : un échec après l'écriture des affectations
   peut laisser des candidats mis à jour sans run complet (voir ARCHITECTURE.md).
+- Il n'y a **pas** d'endpoint `POST /api/candidats` : les candidats sont créés par
+  **import Excel**, puis mis à jour / supprimés.
+- `LieuxJpaRepositoriesIT` existe mais n'est **pas** exécuté par `mvnw test`
+  (convention Failsafe `*IT`, pas Surefire `*Test`).
 
 ## Structure du projet
 
@@ -58,6 +63,7 @@ Points d'attention (non bloquants) :
 | `ARCHITECTURE.md` | Document de référence de l'architecture (en anglais) |
 | `projet.txt` | Cahier des charges PFE et attributs métier |
 | `verify-env.ps1` | Vérification de l'environnement de développement (Java, Maven, Node, PostgreSQL) |
+| `local-env.ps1` | Surcharges locales (gitignoré) : `DB_PASSWORD`, `GATEWAY_PORT`, mail, JWT… |
 | `diagramme-*.puml` | Diagrammes UML (cas d'utilisation, classes, séquences) |
 
 ## Prérequis
@@ -79,7 +85,7 @@ Vérifier l'environnement :
 |---------|------|-----------------|----------------|
 | api-gateway | 8080 | — | Point d'entrée unique : routage par préfixe + CORS |
 | auth-service | 8081 | `PFE_Data` | Connexion, émission JWT, comptes utilisateurs |
-| candidat-service | 8082 | `data_candidats` | CRUD candidats + import Excel + affectation par lot |
+| candidat-service | 8082 | `data_candidats` | Candidats (import Excel, mise à jour, suppression) + affectation par lot |
 | concours-service | 8083 | `data_concours` | Concours + affectation des centres |
 | lieux-service | 8084 | `data_lieux` | Centres, établissements, salles |
 | repartition-service | 8085 | `data_repartition` | Répartition automatique (orchestration + historique) |
@@ -108,8 +114,9 @@ La gateway expose aussi les endpoints Actuator : `/actuator/health`, `/actuator/
 
 ### 1. Base de données
 
-Créer les 6 bases PostgreSQL vides (identifiants par défaut en dev : `postgres` / `postgres`
-sur `localhost:5432`) :
+Créer les 6 bases PostgreSQL vides (identifiants par défaut documentés : `postgres` /
+`postgres` sur `localhost:5432` — si votre instance a un autre mot de passe, définir
+`DB_PASSWORD` dans `local-env.ps1`) :
 
 ```sql
 CREATE DATABASE "PFE_Data";
@@ -134,6 +141,22 @@ cd backend
 Le script lance la gateway et les 6 services dans des fenêtres PowerShell séparées
 (nécessite un JDK 17+ via `JAVA_HOME` ou `java` dans le `PATH`).
 
+S'il existe un fichier **`local-env.ps1` à la racine du dépôt** (gitignoré), le script
+le charge avant de démarrer les processus. C'est le moyen prévu pour les secrets et
+ports locaux, par exemple :
+
+```powershell
+# local-env.ps1 (ne pas committer)
+$env:DB_PASSWORD = "votre_mot_de_passe_postgres"
+$env:GATEWAY_PORT = "8088"          # si Apache/XAMPP occupe déjà 8080
+$env:MAIL_USERNAME = "..."
+$env:MAIL_PASSWORD = "..."
+```
+
+Le port de la gateway est `8080` par défaut, surchargeable via `GATEWAY_PORT`
+(`server.port=${GATEWAY_PORT:8080}`). Dans ce cas, aligner `VITE_GATEWAY_ORIGIN`
+dans `frontend/.env.development.local`.
+
 **Envoi des convocations (Gmail)** : `convocation-service` envoie les convocations par
 SMTP Gmail. Pour activer l'envoi, définir ces variables **avant** de lancer `run-backend.ps1`
 (les fenêtres filles en héritent) ; sinon tous les services démarrent mais l'envoi renvoie un
@@ -148,9 +171,10 @@ $env:MAIL_PASSWORD = "xxxxxxxxxxxxxxxx"   # mot de passe d'application Gmail (16
 Un mot de passe d'application Gmail nécessite la **validation en 2 étapes** activée
 (Compte Google → Sécurité → Mots de passe des applications).
 
-**Configuration locale** : chaque module lit `application.properties`. Pour surcharger en local,
-copier `application-local.properties.example` → `application-local.properties` dans le
-module concerné (fichier gitignoré).
+**Configuration locale** : chaque module lit `application.properties`. Les exemples
+`application-local.properties.example` existent, mais Spring Boot **ne charge pas**
+automatiquement `application-local.properties` (pas de profil `local`). Préférer
+`local-env.ps1` ou les variables d'environnement ci-dessous.
 
 **Configuration par variables d'environnement** : les valeurs sensibles utilisent la syntaxe
 `${VARIABLE:valeur-par-défaut}`. En développement, les valeurs par défaut suffisent (aucune
@@ -162,11 +186,15 @@ les défauts sans modifier le code :
 | `JWT_SECRET` | `auth.jwt.secret` | `pfe-dev-jwt-secret-key-change-me-min-32b!!` | **identique** dans les 6 services ressource |
 | `DB_URL` | `spring.datasource.url` | `jdbc:postgresql://localhost:5432/<base du service>` | par service |
 | `DB_USERNAME` | `spring.datasource.username` | `postgres` | par service |
-| `DB_PASSWORD` | `spring.datasource.password` | `postgres` | par service |
+| `DB_PASSWORD` | `spring.datasource.password` | `postgres` (surcharger via `local-env.ps1` si votre instance PostgreSQL a un autre mot de passe) | par service |
+| `GATEWAY_PORT` | `server.port` (gateway) | `8080` | api-gateway |
 | `AUTH_SERVICE_URI`, `CANDIDAT_SERVICE_URI`, `CONCOURS_SERVICE_URI`, `LIEUX_SERVICE_URI`, `REPARTITION_SERVICE_URI`, `CONVOCATION_SERVICE_URI` | routes de l'API Gateway | ports `8081`–`8086` | api-gateway |
 | `MAIL_USERNAME` | `spring.mail.username` | _(vide)_ | convocation-service |
 | `MAIL_PASSWORD` | `spring.mail.password` | _(vide)_ | convocation-service |
 | `MAIL_FROM` | `convocation.mail.from` | = `MAIL_USERNAME` | convocation-service |
+| `CONVOCATION_ZONE` | fuseau des dates d'examen (PDF / e-mail) | `Africa/Casablanca` | convocation-service |
+| `CONVOCATION_ENVOI_PARALLELISM` | workers SMTP parallèles | `3` | convocation-service |
+| `CONVOCATION_ENVOI_RETRY_MAX`, `CONVOCATION_ENVOI_RETRY_DELAY_MS` | retries SMTP transitoires | `3` / `3000` | convocation-service |
 
 Le **secret JWT** (`auth.jwt.secret` / `JWT_SECRET`) doit être **identique dans les 6 services
 ressource** (auth, candidat, concours, lieux, repartition, convocation) pour que la validation
@@ -183,11 +211,14 @@ cd frontend
 Copy-Item .env.example .env.development.local
 npm install
 npm run dev
+# équivalent : .\run-dev.ps1
 ```
 
 Le proxy Vite redirige `/auth`, `/api/candidats`, `/api/concours`, `/api/centres`,
 `/api/etablissements`, `/api/salles`, `/api/repartition` et `/api/convocations` vers la gateway
-(`VITE_GATEWAY_ORIGIN`, par défaut `http://localhost:8080`).
+(`VITE_GATEWAY_ORIGIN`, par défaut `http://localhost:8080`). Il force `127.0.0.1` et un
+agent HTTP **keep-alive** : sans cela, Node + Spring Cloud Gateway (Netty) peuvent
+échouer avec `Parse Error: Data after Connection: close`.
 
 L'application est disponible sur http://localhost:5173.
 
@@ -238,7 +269,7 @@ Créés par la migration Flyway de l'auth-service (**à changer en production**)
 | `/` | Redirection vers `/dashboard` ou `/login` | Public / authentifié |
 | `/login` | Connexion | Public |
 | `/dashboard` | Tableau de bord (KPIs agrégés) | Authentifié |
-| `/candidats` | Gestion des candidats (import Excel, CRUD, affectation manuelle) | Authentifié |
+| `/candidats` | Candidats (import Excel, édition, suppression, affectation manuelle) | Authentifié |
 | `/concours` | Gestion des concours | Authentifié |
 | `/lieux` | Centres / établissements / salles | Authentifié |
 | `/repartition` | Répartition automatique + historique + export PDF/DOCX | Authentifié (run/reset : GESTIONNAIRE) |
@@ -281,7 +312,9 @@ Sources PlantUML à la racine du dépôt :
 | `diagramme-sequence-repartition-automatique.puml` | Séquence — répartition |
 | `diagramme-sequence-gestion-convocations.puml` | Séquence — convocations |
 
-Générer un PNG (nécessite Node.js et accès réseau vers le serveur PlantUML public) :
+Un export PNG du diagramme de cas d'utilisation est versionné
+(`diagramme-cas-utilisation-general.png`). Pour régénérer un PNG (Node.js + accès
+réseau vers le serveur PlantUML public) :
 
 ```powershell
 node scripts/plantuml-png.mjs diagramme-cas-utilisation-general.puml diagramme-cas-utilisation-general.png
@@ -297,12 +330,14 @@ node scripts/plantuml-png.mjs diagramme-cas-utilisation-general.puml diagramme-c
 npm run build
 ```
 
-Couverture de tests backend (unitaires / slice) :
+Couverture de tests backend (unitaires / slice, exécutés par Surefire) :
 
-- **candidat-service** — résolution concours (`CandidatConcoursResolverTest`)
-- **concours-service** — validation lieux, client HTTP, contrôleur WebMvc
-- **lieux-service** — client existence concours
-- **repartition-service** — algorithme (`RepartitionPlannerTest`), géo (`ReferentielRegionsMarocTest`, `DistanceSidiIfniTest`)
+- **candidat-service** — résolution concours (`CandidatConcoursResolverTest`, 5 tests)
+- **concours-service** — validation lieux, client HTTP, contrôleur WebMvc (13 tests)
+- **lieux-service** — client existence concours (`ConcoursExistenceClientTest`, 7 tests)
+- **repartition-service** — algorithme et géo (9 tests)
+
+auth-service, api-gateway et convocation-service n'ont pas de tests Surefire.
 
 ## Stack technique
 
