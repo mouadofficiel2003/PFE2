@@ -1,0 +1,65 @@
+@startuml diagramme-sequence-repartition-automatique-1
+!theme plain
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam dpi 150
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+<style>
+title {
+  FontSize 26
+  FontStyle bold
+}
+document {
+  FontSize 22
+}
+sequenceDiagram {
+  actor {
+    FontSize 22
+  }
+  participant {
+    FontSize 20
+  }
+  database {
+    FontSize 20
+  }
+  arrow {
+    FontSize 20
+    LineThickness 1.5
+  }
+  divider {
+    FontSize 20
+  }
+  group {
+    FontSize 18
+  }
+  note {
+    FontSize 18
+  }
+  lifeLine {
+    LineThickness 1.5
+  }
+}
+</style>
+
+title Dématérialisation des candidatures — Répartition automatique (1/3)\nDéclenchement
+
+actor "Gestionnaire" as Gest
+participant "Application Web\n(React)" as React
+participant "Passerelle API" as GW
+participant "Service Répartition\n(Spring Boot)" as Rep
+
+== Déclenchement ==
+Gest -> React : Clique sur « Lancer la répartition »
+React -> GW : POST /api/repartition/run
+GW -> Rep : Transmet POST /api/repartition/run
+
+note over React, Rep
+  La requête passe par la passerelle
+  avec Authorization: Bearer <jeton>.
+  Le service répartition relaie ensuite
+  ce jeton vers les autres services.
+end note
+
+@enduml

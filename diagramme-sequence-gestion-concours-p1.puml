@@ -1,0 +1,87 @@
+@startuml diagramme-sequence-gestion-concours-1
+!theme plain
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam dpi 150
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+<style>
+title {
+  FontSize 26
+  FontStyle bold
+}
+document {
+  FontSize 22
+}
+sequenceDiagram {
+  actor {
+    FontSize 22
+  }
+  participant {
+    FontSize 20
+  }
+  database {
+    FontSize 20
+  }
+  arrow {
+    FontSize 20
+    LineThickness 1.5
+  }
+  divider {
+    FontSize 20
+  }
+  group {
+    FontSize 18
+  }
+  note {
+    FontSize 18
+  }
+  lifeLine {
+    LineThickness 1.5
+  }
+}
+</style>
+
+title Dématérialisation des candidatures — Gestion des concours (1/2)\nConsulter et ajouter
+
+actor "Gestionnaire" as Gestionnaire
+participant "Application Web\n(React)" as React
+participant "Passerelle API" as GW
+participant "Service Concours\n(Spring Boot)" as Svc
+database "PostgreSQL" as DB
+
+== Consulter la liste ==
+Gestionnaire -> React : Ouvre la page « Concours »
+React -> GW : GET /api/concours
+GW -> Svc : Transmet GET /api/concours
+Svc -> DB : SELECT concours\net centres affectés
+DB --> Svc : Liste des enregistrements
+Svc --> GW : 200 OK { liste }
+GW --> React : 200 OK
+React --> Gestionnaire : Affiche la liste
+
+== Ajouter un concours ==
+Gestionnaire -> React : Saisit le nom, le numéro,\nla date et l'heure d'examen\net au moins un centre
+React -> GW : POST /api/concours\n{ nomConcours, numeroConcours,\ndateHeureExamen, centres }
+GW -> Svc : Transmet la création
+Svc -> Svc : Vérifie l'unicité du numéro\net l'existence des centres
+alt Numéro déjà utilisé
+  Svc --> GW : 409 Conflict
+  GW --> React : 409 Conflict
+  React --> Gestionnaire : Message d'erreur
+else Création acceptée
+  Svc -> DB : INSERT concours\net affectations de centres
+  DB --> Svc : OK
+  Svc --> GW : 201 Created { concours }
+  GW --> React : 201 Created
+  React -> GW : GET /api/concours
+  GW -> Svc : Transmet GET /api/concours
+  Svc -> DB : SELECT concours
+  DB --> Svc : Liste à jour
+  Svc --> GW : 200 OK { liste }
+  GW --> React : 200 OK
+  React --> Gestionnaire : Liste mise à jour
+end
+
+@enduml

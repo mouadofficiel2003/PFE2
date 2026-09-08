@@ -1,65 +1,129 @@
 @startuml diagramme-sequence-gestion-candidatures
 !theme plain
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam dpi 96
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 
-title Dématérialisation des candidatures — Séquence : gestion des candidatures\n(import Excel des admis, affichage de la liste, puis ajout / modification / suppression)
+<style>
+title {
+  FontSize 26
+  FontStyle bold
+}
+document {
+  FontSize 22
+}
+sequenceDiagram {
+  actor {
+    FontSize 22
+  }
+  participant {
+    FontSize 20
+  }
+  database {
+    FontSize 20
+  }
+  arrow {
+    FontSize 20
+    LineThickness 1.5
+  }
+  divider {
+    FontSize 20
+  }
+  group {
+    FontSize 18
+  }
+  note {
+    FontSize 18
+  }
+  lifeLine {
+    LineThickness 1.5
+  }
+}
+</style>
+
+title Dématérialisation des candidatures — Séquence : gestion des candidatures
 
 actor "Gestionnaire" as Gestionnaire
 participant "Application Web\n(React)" as React
-participant "Passerelle API\n(optionnel)" as GW
+participant "Passerelle API" as GW
 participant "Service Candidats\n(Spring Boot)" as Svc
 database "PostgreSQL" as DB
 
-== Import des candidats admis puis affichage de la liste ==
-Gestionnaire -> React : Ouvre la page « Candidats »\npuis « Importer » et sélectionne le fichier .xlsx\n(des candidats admis)
-React -> GW : POST /candidats/import\n(multipart : fichier Excel)
+== Consulter la liste ==
+Gestionnaire -> React : Ouvre la page « Candidats »
+React -> GW : GET /api/candidats
+GW -> Svc : Transmet GET /api/candidats
+Svc -> DB : SELECT candidat
+DB --> Svc : Liste des enregistrements
+Svc --> GW : 200 OK { liste }
+GW --> React : 200 OK
+React --> Gestionnaire : Affiche la liste
+
+== Importer un fichier Excel ==
+Gestionnaire -> React : Choisit un fichier .xlsx\n(candidats admis)
+React -> React : Vérifie l'extension .xlsx
+React -> GW : POST /api/candidats/import\n(multipart : fichier)
 GW -> Svc : Transmet le fichier
-Svc -> Svc : Lecture Excel, validation des lignes\n(Nom, prénom, ville, CIN, téléphone,\nemail, n° inscription, n° concours, spécialité)
-Svc -> DB : INSERT / upsert en lot\n(transaction si prévu)
-DB --> Svc : Confirmation écriture
-alt Erreurs de validation ou lignes rejetées
-  Svc --> React : 207 Multi-Status ou 400\n{ résumé : importés, erreurs détail }
-  React --> Gestionnaire : Message d'erreur / rapport d'import\n(sans liste complète des nouveaux admis)
-else Import réussi
-  Svc --> React : 200 OK\n{ nombre importés (éventuellement liste retournée) }
-  React -> GW : GET /candidats\n(chargement de la liste en base)
-  GW -> Svc : Liste des candidats
-  Svc -> DB : SELECT candidats
-  DB --> Svc : Jeu de lignes
-  Svc --> React : 200 OK\n{ liste de candidats }
-  React --> Gestionnaire : Affiche la liste des candidats\n(importés depuis le fichier Excel)
+Svc -> Svc : Lit le tableur, valide les lignes\net résout le concours
+
+alt Fichier refusé (vide ou format incorrect)
+  Svc --> GW : 400 Bad Request
+  GW --> React : 400 Bad Request
+  React --> Gestionnaire : Message d'erreur
+else Import traité
+  loop Pour chaque ligne valide
+    Svc -> DB : INSERT ou UPDATE\n(selon le CIN)
+    DB --> Svc : Écriture confirmée
+  end
+  Svc --> GW : 200 OK { inserted, updated,\nskipped, errors }
+  GW --> React : 200 OK
+  React -> GW : GET /api/candidats
+  GW -> Svc : Transmet GET /api/candidats
+  Svc -> DB : SELECT candidat
+  DB --> Svc : Liste à jour
+  Svc --> GW : 200 OK { liste }
+  GW --> React : 200 OK
+  React --> Gestionnaire : Liste et résumé d'import
 end
 
-== Ajouter un candidat ==
-Gestionnaire -> React : Remplit le formulaire puis valide
-React -> GW : POST /candidats\n{ corps JSON avec les champs métier }
-GW -> Svc : Création candidat
-Svc -> DB : INSERT candidat
-DB --> Svc : Identifiant créé
-Svc --> React : 201 Created\n{ candidat créé }
-React --> Gestionnaire : Liste ou détail mis à jour
-
 == Modifier un candidat ==
-Gestionnaire -> React : Choisit « Modifier » et édite les informations
-React -> GW : PUT ou PATCH /candidats/{id}\n{ champs modifiés }
-GW -> Svc : Mise à jour
-Svc -> DB : UPDATE candidat WHERE id
+Gestionnaire -> React : Ouvre « Modifier »\n(+ affectation : centre,\nétablissement, salle, place)
+React -> GW : PUT /api/candidats/{numeroInscription}
+GW -> Svc : Transmet la mise à jour
+Svc -> Svc : Contrôle le concours\net l'affectation
+Svc -> DB : UPDATE candidat
 DB --> Svc : OK
-Svc --> React : 200 OK\n{ candidat à jour }
+Svc --> GW : 200 OK { candidat }
+GW --> React : 200 OK
 React --> Gestionnaire : Affichage mis à jour
 
 == Supprimer un candidat ==
 Gestionnaire -> React : Confirme la suppression
-React -> GW : DELETE /candidats/{id}
-GW -> Svc : Suppression
-Svc -> DB : DELETE (ou suppression logique)
+React -> GW : DELETE /api/candidats/{numeroInscription}
+GW -> Svc : Transmet la suppression
+Svc -> DB : DELETE candidat
 DB --> Svc : OK
-Svc --> React : 204 No Content ou 200 OK
+Svc --> GW : 200 OK
+GW --> React : 200 OK
 React --> Gestionnaire : Candidat retiré de la liste
 
-note right of Svc
-  Les microservices peuvent être découpés\n(ex. service dédié « import » ou fichier)\nselon votre architecture réelle.
+== Réinitialiser la liste ==
+Gestionnaire -> React : Confirme la réinitialisation
+React -> GW : DELETE /api/candidats
+GW -> Svc : Transmet la réinitialisation
+Svc -> DB : DELETE de tous les candidats
+DB --> Svc : Nombre supprimé
+Svc --> GW : 200 OK { deleted }
+GW --> React : 200 OK
+React --> Gestionnaire : Liste vide
+
+note over React, Svc
+  Toutes les requêtes passent par la passerelle
+  avec Authorization: Bearer <jeton>.
+  Il n'existe pas de création unitaire :
+  les candidats sont créés par import Excel.
 end note
 
 @enduml

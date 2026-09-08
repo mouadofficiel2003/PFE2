@@ -1,96 +1,127 @@
 @startuml diagramme-sequence-gestion-convocations
 !theme plain
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam dpi 96
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 
-title Dématérialisation des candidatures — Gestion des convocations\n(génération PDF, contrôle de 5 convocations, gestion unitaire, envoi automatique)
+<style>
+title {
+  FontSize 26
+  FontStyle bold
+}
+document {
+  FontSize 22
+}
+sequenceDiagram {
+  actor {
+    FontSize 22
+  }
+  participant {
+    FontSize 20
+  }
+  database {
+    FontSize 20
+  }
+  arrow {
+    FontSize 20
+    LineThickness 1.5
+  }
+  divider {
+    FontSize 20
+  }
+  group {
+    FontSize 18
+  }
+  note {
+    FontSize 18
+  }
+  lifeLine {
+    LineThickness 1.5
+  }
+}
+</style>
 
-actor "Gestionnaire" as Gestionnaire
-participant "Application Web\n(React)" as React
-participant "Passerelle API\n(optionnel)" as GW
-participant "Service Convocations\n(Spring Boot)" as Conv
-participant "Service Répartition" as Repart
-participant "Service PDF" as Pdf
-participant "Service Email" as Mail
+title Dématérialisation des candidatures — Séquence : gestion des convocations
+
+actor "Gestionnaire" as Gest
+participant "Application\nWeb (React)" as React
+participant "Passerelle\nAPI" as GW
+participant "Convocations" as Conv
+participant "Candidats" as Cand
+participant "Concours" as Conc
+participant "Lieux" as Lieux
+participant "Gmail\n(SMTP)" as Mail
 database "PostgreSQL" as DB
-collections "Stockage fichiers\n(PDF)" as Store
 
-== Générer les convocations ==
-Gestionnaire -> React : Clique sur « Générer les convocations »
-React -> GW : POST /convocations/generer\n( concours cible )
-GW -> Conv : Demande de génération
-
-Conv -> Repart : Charger affectations candidats\n(centre, établissement, salle, place)
-Repart -> DB : SELECT affectations validées
-DB --> Repart : Données de répartition
-Repart --> Conv : Affectations + infos candidats
-
-loop Pour chaque candidat affecté
-  Conv -> Conv : Construire les données convocation\n(nom, prénom, centre, établissement,\nsalle, date, n° place, n° inscription, n° concours)
-  Conv -> Pdf : Générer PDF convocation
-  Pdf --> Conv : Fichier PDF
-  Conv -> Store : Enregistrer PDF
+== Consulter les convocations ==
+Gest -> React : Ouvre la page « Convocations »
+React -> GW : GET /api/convocations
+GW -> Conv : Transmet GET /api/convocations
+Conv -> Cand : GET /api/candidats
+Cand --> Conv : 200 OK { candidats }
+Conv -> Conc : GET /api/concours
+Conc --> Conv : 200 OK { concours }
+loop Pour chaque concours des candidats affectés
+  Conv -> Lieux : GET /api/salles?numeroConcours=
+  Lieux --> Conv : 200 OK { salles }
 end
+Conv -> Conv : Ne retient que les candidats\navec affectation complète
+Conv --> GW : 200 OK { convocations }
+GW --> React : 200 OK
+React -> GW : GET /api/convocations/envois
+GW -> Conv : Transmet GET /api/convocations/envois
+Conv -> DB : SELECT convocation_envoi
+DB --> Conv : Historique des envois
+Conv --> GW : 200 OK { envois }
+GW --> React : 200 OK
+React --> Gest : Affiche la liste et l'historique
 
-Conv -> DB : INSERT/UPDATE convocations\n(statut = PRETE_A_ENVOI, lien PDF)
-DB --> Conv : Confirmation
-Conv -> DB : SELECT 5 convocations aléatoires
-DB --> Conv : 5 convocations
-Conv --> GW : 200 OK\n( résumé + 5 convocations de contrôle )
-GW --> React : Résultat génération
-React --> Gestionnaire : Affiche succès + 5 convocations aléatoires\n(testables et gérables)
-
-== Gérer une convocation (sur les 5 ou toute la liste) ==
-alt Modifier une convocation
-  Gestionnaire -> React : Modifie une convocation puis valide
-  React -> GW : PATCH /convocations/idConvocation\n( champs autorisés )
-  GW -> Conv : Mise à jour
-  Conv -> DB : UPDATE convocation
-  DB --> Conv : OK
-  Conv --> GW : 200 OK
-  GW --> React : Convocation mise à jour
-  React --> Gestionnaire : Affichage actualisé
-else Supprimer une convocation
-  Gestionnaire -> React : Supprime une convocation
-  React -> GW : DELETE /convocations/idConvocation
-  GW -> Conv : Suppression
-  Conv -> DB : DELETE ou statut SUPPRIMEE
-  DB --> Conv : OK
-  Conv --> GW : 204 ou 200
-  GW --> React : Suppression confirmée
-  React --> Gestionnaire : Convocation retirée
-else Envoyer une convocation par email (test unitaire)
-  Gestionnaire -> React : Clique « Envoyer » sur une convocation
-  React -> GW : POST /convocations/idConvocation/envoyer
-  GW -> Conv : Envoi unitaire
-  Conv -> Mail : Envoyer email + PDF au candidat
-  Mail --> Conv : Résultat envoi
-  Conv -> DB : UPDATE statut envoi
-  DB --> Conv : OK
-  Conv --> GW : 200 OK
-  GW --> React : Envoi unitaire terminé
-  React --> Gestionnaire : Succès / échec affiché
-end
+== Consulter un PDF ==
+Gest -> React : Clique « Voir le PDF »
+React -> GW : GET /api/convocations/{numeroInscription}/pdf
+GW -> Conv : Transmet la demande
+Conv -> Conv : Assemble la convocation\net génère le PDF
+Conv --> GW : 200 OK (PDF)
+GW --> React : 200 OK
+React --> Gest : Ouvre le PDF
 
 == Envoyer toutes les convocations ==
-Gestionnaire -> React : Clique sur « Envoyer les convocations »
-React -> GW : POST /convocations/envoyer-toutes
-GW -> Conv : Démarrer envoi massif
-Conv -> DB : SELECT convocations PRETES_A_ENVOI
-DB --> Conv : Liste convocations à envoyer
-
-loop Pour chaque convocation prête
-  Conv -> Mail : Envoyer email avec PDF en pièce jointe
-  Mail --> Conv : Succès ou échec
-  Conv -> DB : UPDATE statut (ENVOYEE / ECHEC)\n+ horodatage + motif erreur
+Gest -> React : Clique « Envoyer toutes les convocations »
+React -> GW : POST /api/convocations/envoyer
+GW -> Conv : Transmet POST /api/convocations/envoyer
+alt E-mail non configuré
+  Conv --> GW : 503 Service Unavailable
+  GW --> React : 503 Service Unavailable
+  React --> Gest : Message d'erreur
+else Aucun candidat affecté
+  Conv --> GW : 400 Bad Request
+  GW --> React : 400 Bad Request
+  React --> Gest : Message d'erreur
+else Envoi
+  Conv -> Conv : Réassemble les convocations prêtes
+  loop Pour chaque convocation
+    Conv -> Conv : Générer le PDF
+    Conv -> Mail : E-mail + PDF en pièce jointe
+    Mail --> Conv : Succès ou échec
+  end
+  Conv -> DB : INSERT convocation_envoi\n(ENVOYE / ECHEC)
+  DB --> Conv : OK
+  Conv --> GW : 200 OK { bilan }
+  GW --> React : 200 OK
+  React --> Gest : Affiche le bilan d'envoi
 end
 
-Conv --> GW : 200 OK\n( bilan : envoyées, échecs )
-GW --> React : Résultat envoi massif
-React --> Gestionnaire : Affiche le bilan d'envoi
-
-note right of Conv
-  Contenu d'une convocation :\nnom, prénom, centre, établissement, salle,\ndate, numéro de place, numéro d'inscription,\nnuméro de concours.
+note over React, Conv
+  La requête du navigateur passe par la passerelle
+  avec Authorization: Bearer <jeton>.
+  Le service convocations relaie ce jeton
+  vers candidats, concours et lieux.
+  Une convocation n'est pas stockée : elle est
+  assemblée à la lecture (affectation complète).
+  PostgreSQL ne conserve que l'historique des envois.
+  POST /api/convocations/envois/reinitialiser le vide.
 end note
 
 @enduml

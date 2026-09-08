@@ -1,0 +1,84 @@
+@startuml diagramme-sequence-gestion-centres-2
+!theme plain
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam dpi 150
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+<style>
+title {
+  FontSize 26
+  FontStyle bold
+}
+document {
+  FontSize 22
+}
+sequenceDiagram {
+  actor {
+    FontSize 22
+  }
+  participant {
+    FontSize 20
+  }
+  database {
+    FontSize 20
+  }
+  arrow {
+    FontSize 20
+    LineThickness 1.5
+  }
+  divider {
+    FontSize 20
+  }
+  group {
+    FontSize 18
+  }
+  note {
+    FontSize 18
+  }
+  lifeLine {
+    LineThickness 1.5
+  }
+}
+</style>
+
+title Dématérialisation des candidatures — Gestion des centres (2/2)\nModifier et supprimer
+
+actor "Gestionnaire" as Gestionnaire
+participant "Application Web\n(React)" as React
+participant "Passerelle API" as GW
+participant "Service Lieux\n(Spring Boot)" as Svc
+database "PostgreSQL" as DB
+
+== Modifier un centre ==
+Gestionnaire -> React : Modifie le nom du centre
+React -> GW : PUT /api/centres/{id}\n{ nomCentre }
+GW -> Svc : Transmet la mise à jour
+Svc -> Svc : Vérifie l'unicité du nom\net propage le libellé
+Svc -> DB : UPDATE centre
+DB --> Svc : OK
+Svc --> GW : 200 OK { centre }
+GW --> React : 200 OK
+React --> Gestionnaire : Affichage mis à jour
+
+== Supprimer un centre ==
+Gestionnaire -> React : Confirme la suppression\n(centre et contenu rattaché)
+React -> GW : DELETE /api/centres/{id}
+GW -> Svc : Transmet la suppression
+Svc -> DB : DELETE centre\n(cascade établissements et salles)
+DB --> Svc : OK
+Svc --> GW : 200 OK
+GW --> React : 200 OK
+React --> Gestionnaire : Centre retiré de la liste
+
+note over React, Svc
+  Toutes les requêtes passent par la passerelle
+  avec Authorization: Bearer <jeton>.
+  Un centre est un pôle géographique (ville),
+  identifié par un nom unique.
+  Les concours du centre sont en lecture ;
+  ils se rattachent depuis la gestion des concours.
+end note
+
+@enduml

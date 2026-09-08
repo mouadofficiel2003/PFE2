@@ -1,55 +1,115 @@
 @startuml diagramme-sequence-gestion-concours
 !theme plain
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam dpi 96
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 
-title Dématérialisation des candidatures — Séquence : gestion des concours\n(ajouter, modifier, supprimer un concours)
+<style>
+title {
+  FontSize 26
+  FontStyle bold
+}
+document {
+  FontSize 22
+}
+sequenceDiagram {
+  actor {
+    FontSize 22
+  }
+  participant {
+    FontSize 20
+  }
+  database {
+    FontSize 20
+  }
+  arrow {
+    FontSize 20
+    LineThickness 1.5
+  }
+  divider {
+    FontSize 20
+  }
+  group {
+    FontSize 18
+  }
+  note {
+    FontSize 18
+  }
+  lifeLine {
+    LineThickness 1.5
+  }
+}
+</style>
+
+title Dématérialisation des candidatures — Séquence : gestion des concours
 
 actor "Gestionnaire" as Gestionnaire
 participant "Application Web\n(React)" as React
-participant "Passerelle API\n(optionnel)" as GW
+participant "Passerelle API" as GW
 participant "Service Concours\n(Spring Boot)" as Svc
 database "PostgreSQL" as DB
 
-== Consulter la liste des concours (page « Concours ») ==
-Gestionnaire -> React : Ouvre la page de gestion des concours
-React -> GW : GET /concours
-GW -> Svc : Liste des concours
-Svc -> DB : SELECT concours
-DB --> Svc : Jeu de lignes
-Svc --> React : 200 OK\n{ concours : nom, n°, date, ... }
-React --> Gestionnaire : Affiche la liste des concours
+== Consulter la liste ==
+Gestionnaire -> React : Ouvre la page « Concours »
+React -> GW : GET /api/concours
+GW -> Svc : Transmet GET /api/concours
+Svc -> DB : SELECT concours\net centres affectés
+DB --> Svc : Liste des enregistrements
+Svc --> GW : 200 OK { liste }
+GW --> React : 200 OK
+React --> Gestionnaire : Affiche la liste
 
 == Ajouter un concours ==
-Gestionnaire -> React : Saisit les informations\n(nom du concours, numéro du concours, date du concours)\npuis valide
-React -> GW : POST /concours\n{ nom, numeroConcours, dateConcours }
-GW -> Svc : Création concours
-Svc -> Svc : Validation métier (unicité n°, dates, etc.)
-Svc -> DB : INSERT concours
-DB --> Svc : Identifiant créé
-Svc --> React : 201 Created\n{ concours créé }
-React --> Gestionnaire : Liste ou message de succès\nmis à jour
+Gestionnaire -> React : Saisit le nom, le numéro,\nla date et l'heure d'examen\net au moins un centre
+React -> GW : POST /api/concours\n{ nomConcours, numeroConcours,\ndateHeureExamen, centres }
+GW -> Svc : Transmet la création
+Svc -> Svc : Vérifie l'unicité du numéro\net l'existence des centres
+alt Numéro déjà utilisé
+  Svc --> GW : 409 Conflict
+  GW --> React : 409 Conflict
+  React --> Gestionnaire : Message d'erreur
+else Création acceptée
+  Svc -> DB : INSERT concours\net affectations de centres
+  DB --> Svc : OK
+  Svc --> GW : 201 Created { concours }
+  GW --> React : 201 Created
+  React -> GW : GET /api/concours
+  GW -> Svc : Transmet GET /api/concours
+  Svc -> DB : SELECT concours
+  DB --> Svc : Liste à jour
+  Svc --> GW : 200 OK { liste }
+  GW --> React : 200 OK
+  React --> Gestionnaire : Liste mise à jour
+end
 
 == Modifier un concours ==
-Gestionnaire -> React : Sélectionne un concours puis « Modifier »\nédite les champs et valide
-React -> GW : PUT ou PATCH /concours/{id}\n{ nom, numeroConcours, dateConcours }
-GW -> Svc : Mise à jour
-Svc -> DB : UPDATE concours WHERE id
+Gestionnaire -> React : Ouvre « Modifier »,\nédite les champs et les centres
+React -> GW : PUT /api/concours/{numeroConcours}
+GW -> Svc : Transmet la mise à jour
+Svc -> Svc : Contrôle le numéro\net les centres
+Svc -> DB : UPDATE concours\net affectations
 DB --> Svc : OK
-Svc --> React : 200 OK\n{ concours à jour }
+Svc --> GW : 200 OK { concours }
+GW --> React : 200 OK
 React --> Gestionnaire : Affichage mis à jour
 
 == Supprimer un concours ==
-Gestionnaire -> React : Choisit « Supprimer » et confirme
-React -> GW : DELETE /concours/{id}
-GW -> Svc : Suppression
-Svc -> DB : DELETE (ou suppression logique)\n(contraintes : candidats liés, etc.)
+Gestionnaire -> React : Confirme la suppression
+React -> GW : DELETE /api/concours/{numeroConcours}
+GW -> Svc : Transmet la suppression
+Svc -> DB : DELETE concours
 DB --> Svc : OK
-Svc --> React : 204 No Content ou 200 OK
+Svc --> GW : 200 OK
+GW --> React : 200 OK
 React --> Gestionnaire : Concours retiré de la liste
 
-note right of Svc
-  Selon l'architecture, le service peut être\nun microservice dédié « concours » ou\nun module d'un service « référentiel ».
+note over React, Svc
+  Toutes les requêtes passent par la passerelle
+  avec Authorization: Bearer <jeton>.
+  Un concours porte un numéro, une date et heure
+  d'examen, et au moins un centre.
 end note
 
 @enduml

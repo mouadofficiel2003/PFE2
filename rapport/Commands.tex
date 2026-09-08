@@ -1,0 +1,90 @@
+\newcommand{\reportAuthor} {%
+  Mouad \textsc{Ettahiri}%
+}
+
+\newcommand{\reportTitle} {%
+  Conception et développement d'une application pour l'automatisation de la gestion des concours de recrutement%
+}
+
+\newcommand{\reportSubject} {%
+  Conception et développement d'une application pour l'automatisation de la gestion des concours de recrutement%
+}
+
+\newcommand{\dateSoutenance} {%
+  Septembre 2026%
+}
+
+\newcommand{\studyDepartment} {%
+  Ingénierie Informatique et Réseaux option MIAGE%
+}
+
+\newcommand{\ENETCOM} {%
+  École Marocaine des Sciences de l'Ingénieur -- Rabat%
+}
+
+\newcommand{\codePFE} {%
+}
+
+\newcommand{\juryPresident} {%
+  Pr. Imane \textsc{Hilal}%
+}
+\newcommand{\juryPresidentDesc} {%
+  Tuteur de l'école%
+}
+
+\newcommand{\juryMemberOne} {%
+  M. Tarik \textsc{Lakhbizi}%
+}
+\newcommand{\juryMemberOneDesc} {%
+  Tuteur de stage%
+}
+
+\newcommand{\juryMemberTwo} {%
+}
+\newcommand{\juryMemberTwoDesc} {%
+}
+
+\newcommand{\specialcell}[1]{%
+  \begin{tabularx}{\textwidth}{@{}X@{}}#1\end{tabularx}%
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Add your own commands here
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\MyCommand} {%
+  Does nothing really%
+}
+
+% Diagramme principal : page dédiée, portrait (pas de rotation)
+\newcommand{\fullpagefig}[3]{%
+  \ifdim\pagetotal>0pt\clearpage\fi
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth,height=0.88\textheight,keepaspectratio]{#1}%
+    \caption{#2}
+    \label{#3}
+  \end{figure}
+  \clearpage
+}
+
+% Sous-diagramme (a, b, c) : compact, plusieurs par page si possible
+\newcommand{\subseqfig}[3]{%
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth,height=0.34\textheight,keepaspectratio]{#1}%
+    \caption{#2}
+    \label{#3}
+  \end{figure}%
+}
+
+% Conservé si un diagramme large devait revenir en paysage
+\newcommand{\landscapefig}[3]{%
+  \begin{landscape}
+    \begin{figure}[H]
+      \centering
+      \includegraphics[width=0.97\linewidth,height=0.78\textheight,keepaspectratio]{#1}%
+      \caption{#2}
+      \label{#3}
+    \end{figure}
+  \end{landscape}
+}

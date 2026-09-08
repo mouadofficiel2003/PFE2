@@ -1,0 +1,100 @@
+\documentclass[12pt, oneside, a4paper]{Enetcom-PFE-Report-dissertation}
+
+\usepackage{titlesec}
+\usepackage{setspace}
+\usepackage{scrextend}
+\usepackage{tabularray}
+\usepackage{ragged2e}
+\usepackage{float}
+\usepackage{pdflscape}
+
+\makeatletter
+% For Figures
+\let\oldl@figure\l@figure
+\renewcommand{\l@figure}[2]{%
+	\oldl@figure{\hyper@linkstart{link}{\@currentHref}{Figure #1}\hyper@linkend}{#2}}
+
+% For Tables
+\let\oldl@table\l@table
+\renewcommand{\l@table}[2]{%
+	\oldl@table{\hyper@linkstart{link}{\@currentHref}{Table #1}\hyper@linkend}{#2}}
+\makeatother
+
+\setlength{\parindent}{0pt}
+
+\graphicspath{{images/}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Include useful commands
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{Commands}
+
+\hypersetup{
+    pdftitle={\reportTitle},%
+    pdfauthor={\reportAuthor},%
+    pdfsubject={\reportSubject},%
+    pdfkeywords={PFE} {EMSI} {Concours} {Recrutement} {Automatisation} {Microservices}
+}
+\dominitoc
+
+% Adjust spacing between titles
+\titlespacing\section{0pt}{10pt plus 2pt minus 2pt}{4pt plus 2pt minus 2pt}
+\titlespacing\subsection{0pt}{8pt plus 2pt minus 2pt}{2pt plus 1pt minus 1pt}
+\titlespacing\subsubsection{0pt}{6pt plus 2pt minus 2pt}{1pt plus 1pt minus 1pt}
+
+\begin{document}
+    \input{chapter/00-CoverPage}
+    \onehalfspacing
+    \justifying
+    \pagenumbering{roman}
+    \setcounter{page}{2}
+
+    \input{chapter/01-AvantPropos}
+
+    \input{chapter/02-Dedicace}
+
+    \input{chapter/03-Remerciement}
+
+    \input{chapter/04-Abstract}
+
+    \input{chapter/05-Resume}
+
+    % Glossaire : non inclus, conformément à la demande de l'auteur.
+
+    \addtocontents{toc}{\protect\thispagestyle{MyStyle}}
+    \renewcommand*\contentsname{Table des matières}
+    \begin{spacing}{1}
+        \tableofcontents
+    \end{spacing}
+
+    \addtocontents{lof}{\protect\thispagestyle{MyStyle}}
+    \renewcommand{\listfigurename}{Liste des figures}
+    \begin{spacing}{1}
+        \listoffigures
+    \end{spacing}
+    \addcontentsline{toc}{chapter}{\listfigurename}
+    \adjustmtc
+
+    \addtocontents{lof}{\protect\thispagestyle{MyStyle}}
+    \renewcommand{\listtablename}{Liste des tableaux}
+    \begin{spacing}{1}
+        \listoftables
+    \end{spacing}
+    \addcontentsline{toc}{chapter}{\listtablename}
+    \adjustmtc
+    \onehalfspacing
+
+    \clearpage
+
+    \pagenumbering{arabic}
+    \setcounter{page}{1}
+    \onehalfspacing
+
+    \input{chapter/07-IntroductionGeneral}
+    \input{chapter/08-Chapitre2}
+    \input{chapter/09-Chapitre3}
+    \input{chapter/10-Chapitre4}
+    \input{chapter/11-ConclusionGeneral}
+    \input{chapter/12-Bibliography}
+
+\end{document}

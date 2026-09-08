@@ -1,0 +1,80 @@
+@startuml diagramme-sequence-gestion-convocations-1
+!theme plain
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam dpi 150
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+<style>
+title {
+  FontSize 26
+  FontStyle bold
+}
+document {
+  FontSize 22
+}
+sequenceDiagram {
+  actor {
+    FontSize 22
+  }
+  participant {
+    FontSize 20
+  }
+  database {
+    FontSize 20
+  }
+  arrow {
+    FontSize 20
+    LineThickness 1.5
+  }
+  divider {
+    FontSize 20
+  }
+  group {
+    FontSize 18
+  }
+  note {
+    FontSize 18
+  }
+  lifeLine {
+    LineThickness 1.5
+  }
+}
+</style>
+
+title Dématérialisation des candidatures — Gestion des convocations (1/3)\nConsulter : assemblage de la liste
+
+participant "Service Convocations\n(Spring Boot)" as Conv
+participant "Service Candidats\n(Spring Boot)" as Cand
+participant "Service Concours\n(Spring Boot)" as Conc
+participant "Service Lieux\n(Spring Boot)" as Lieux
+database "PostgreSQL" as DB
+
+== Consulter les convocations ==
+note over Conv, Lieux
+  Le gestionnaire ouvre la page « Convocations ».
+  GET /api/convocations arrive au service
+  via l'application web et la passerelle
+  (Authorization: Bearer <jeton>).
+end note
+
+Conv -> Cand : GET /api/candidats
+Cand --> Conv : 200 OK { candidats }
+Conv -> Conc : GET /api/concours
+Conc --> Conv : 200 OK { concours }
+loop Pour chaque concours des candidats affectés
+  Conv -> Lieux : GET /api/salles?numeroConcours=
+  Lieux --> Conv : 200 OK { salles }
+end
+Conv -> Conv : Ne retient que les candidats\navec affectation complète
+Conv -> DB : SELECT convocation_envoi
+DB --> Conv : Historique des envois
+
+note over Conv, DB
+  Le service renvoie { convocations } puis { envois }.
+  L'écran affiche la liste et l'historique.
+  Le jeton JWT est relayé vers candidats, concours et lieux.
+end note
+
+@enduml

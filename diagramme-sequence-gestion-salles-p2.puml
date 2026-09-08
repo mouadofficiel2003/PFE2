@@ -1,0 +1,85 @@
+@startuml diagramme-sequence-gestion-salles-2
+!theme plain
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam dpi 150
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+<style>
+title {
+  FontSize 26
+  FontStyle bold
+}
+document {
+  FontSize 22
+}
+sequenceDiagram {
+  actor {
+    FontSize 22
+  }
+  participant {
+    FontSize 20
+  }
+  database {
+    FontSize 20
+  }
+  arrow {
+    FontSize 20
+    LineThickness 1.5
+  }
+  divider {
+    FontSize 20
+  }
+  group {
+    FontSize 18
+  }
+  note {
+    FontSize 18
+  }
+  lifeLine {
+    LineThickness 1.5
+  }
+}
+</style>
+
+title Dématérialisation des candidatures — Gestion des salles (2/2)\nModifier et supprimer
+
+actor "Gestionnaire" as Gestionnaire
+participant "Application Web\n(React)" as React
+participant "Passerelle API" as GW
+participant "Service Lieux\n(Spring Boot)" as Svc
+database "PostgreSQL" as DB
+
+== Modifier une salle ==
+Gestionnaire -> React : Modifie le nom, les places\net/ou le concours
+React -> GW : PUT /api/salles/{idSalle}\n{ nomSalle, nombrePlaces, numeroConcours }
+GW -> Svc : Transmet la mise à jour
+Svc -> Svc : Vérifie l'unicité du nom\ndans l'établissement\net l'existence du concours
+Svc -> DB : UPDATE salle
+DB --> Svc : OK
+Svc --> GW : 200 OK { salle }
+GW --> React : 200 OK
+React --> Gestionnaire : Affichage mis à jour
+
+== Supprimer une salle ==
+Gestionnaire -> React : Confirme la suppression de la salle
+React -> GW : DELETE /api/salles/{idSalle}
+GW -> Svc : Transmet la suppression
+Svc -> DB : DELETE salle
+DB --> Svc : OK
+Svc --> GW : 200 OK
+GW --> React : 200 OK
+React --> Gestionnaire : Salle retirée
+
+note over React, Svc
+  Toutes les requêtes passent par la passerelle
+  avec Authorization: Bearer <jeton>.
+  Une salle appartient à un établissement,
+  porte un nom unique dans cet établissement,
+  une capacité, et au plus un concours.
+  GET /api/salles?numeroConcours= sert ailleurs
+  (répartition, tableau de bord), pas à cette page.
+end note
+
+@enduml

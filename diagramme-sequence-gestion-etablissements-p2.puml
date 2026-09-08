@@ -1,0 +1,84 @@
+@startuml diagramme-sequence-gestion-etablissements-2
+!theme plain
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam dpi 150
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+<style>
+title {
+  FontSize 26
+  FontStyle bold
+}
+document {
+  FontSize 22
+}
+sequenceDiagram {
+  actor {
+    FontSize 22
+  }
+  participant {
+    FontSize 20
+  }
+  database {
+    FontSize 20
+  }
+  arrow {
+    FontSize 20
+    LineThickness 1.5
+  }
+  divider {
+    FontSize 20
+  }
+  group {
+    FontSize 18
+  }
+  note {
+    FontSize 18
+  }
+  lifeLine {
+    LineThickness 1.5
+  }
+}
+</style>
+
+title Dématérialisation des candidatures — Gestion des établissements (2/2)\nModifier et supprimer
+
+actor "Gestionnaire" as Gestionnaire
+participant "Application Web\n(React)" as React
+participant "Passerelle API" as GW
+participant "Service Lieux\n(Spring Boot)" as Svc
+database "PostgreSQL" as DB
+
+== Modifier un établissement ==
+Gestionnaire -> React : Modifie le nom de l'établissement
+React -> GW : PUT /api/etablissements/{id}\n{ nomEtablissement }
+GW -> Svc : Transmet la mise à jour
+Svc -> Svc : Vérifie l'unicité du nom\ndans le centre
+Svc -> DB : UPDATE établissement
+DB --> Svc : OK
+Svc --> GW : 200 OK { établissement }
+GW --> React : 200 OK
+React --> Gestionnaire : Affichage mis à jour
+
+== Supprimer un établissement ==
+Gestionnaire -> React : Confirme la suppression\n(établissement et ses salles)
+React -> GW : DELETE /api/etablissements/{id}
+GW -> Svc : Transmet la suppression
+Svc -> DB : DELETE établissement\n(cascade salles)
+DB --> Svc : OK
+Svc --> GW : 200 OK
+GW --> React : 200 OK
+React --> Gestionnaire : Établissement retiré
+
+note over React, Svc
+  Toutes les requêtes passent par la passerelle
+  avec Authorization: Bearer <jeton>.
+  Un établissement appartient à un centre
+  et porte un nom unique dans ce centre.
+  Les concours y apparaissent en lecture
+  (via les salles) ; les salles se gèrent à part.
+end note
+
+@enduml

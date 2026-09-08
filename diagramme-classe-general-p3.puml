@@ -1,0 +1,107 @@
+@startuml diagramme-classe-general-3
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 30
+skinparam ranksep 40
+skinparam dpi 150
+hide empty methods
+hide circle
+
+<style>
+title {
+  FontSize 22
+  FontStyle bold
+}
+legend {
+  FontSize 15
+}
+package {
+  FontSize 16
+  FontStyle bold
+}
+class {
+  FontSize 16
+  Header {
+    FontSize 17
+    FontStyle bold
+  }
+}
+enum {
+  FontSize 15
+}
+note {
+  FontSize 14
+}
+arrow {
+  FontSize 14
+  LineThickness 1.2
+}
+</style>
+
+title Dématérialisation des candidatures — Classes (3/4)\nRépartition automatique
+
+legend bottom
+  Losange plein = composition  ·  Flèche pointillée = référence par identifiant
+endlegend
+
+package "Répartition" #FAF4FF {
+  enum RepartitionStatut <<enumeration>> {
+    TERMINEE
+    TERMINEE_AVEC_ALERTES
+    ECHEC
+  }
+  enum AlerteType <<enumeration>> {
+    CAPACITE_DEPASSEE
+    AUCUN_CENTRE_DISPONIBLE
+    CONCOURS_INCONNU
+    VILLE_NON_GEOLOCALISEE
+  }
+  class RepartitionRun {
+    - id : Long <<PK>>
+    + statut : RepartitionStatut
+    + totalCandidats : int
+    + totalAffectes : int
+    + totalAlertes : int
+    --
+    + lancer()
+    + consulter()
+    + reinitialiserAffectations()
+    + supprimer()
+  }
+  class RepartitionAffectation {
+    + numeroInscription : String
+    + numeroPlace : Integer
+  }
+  class RepartitionAlerte {
+    + type : AlerteType
+    + numeroInscription : String
+  }
+  RepartitionRun --> RepartitionStatut
+  RepartitionRun "1" *-- "0..*" RepartitionAffectation
+  RepartitionRun "1" *-- "0..*" RepartitionAlerte
+  RepartitionAlerte --> AlerteType
+  RepartitionRun -[hidden]down- RepartitionAlerte
+  RepartitionAlerte -[hidden]down- RepartitionAffectation
+}
+
+package "Candidats" #F6FFF4 {
+  class Candidat {
+    - numeroInscription : String <<PK>>
+  }
+}
+
+RepartitionAffectation "0..*" ..> "1" Candidat
+RepartitionAlerte "0..*" ..> "0..1" Candidat
+RepartitionAffectation -[hidden]down- Candidat
+
+note bottom of Candidat
+  Après un run réussi, le siège du candidat
+  (figure 2) est mis à jour : centre,
+  établissement, salle et numéro de place.
+end note
+
+@enduml

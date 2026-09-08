@@ -1,0 +1,351 @@
+\chapter{Étude fonctionnelle et technique}
+\thispagestyle{MyStyle}
+\begin{onehalfspace}
+
+\newcommand{\tabrf}[3]{%
+\begin{table}[H]
+\centering
+\caption{#1}
+\label{#2}
+\begin{spacing}{1}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|p{1.7cm}|p{9.4cm}|p{4.0cm}|}
+\hline
+\rowcolor[HTML]{C9DAF8}
+\textbf{ID} & \textbf{Besoin} & \textbf{Acteur} \\
+\hline
+#3
+\end{tabular}%
+}
+\end{spacing}
+\end{table}%
+}
+
+\section{Introduction}
+
+Ce chapitre présente le cahier des charges du projet. Il expose les spécifications fonctionnelles et non fonctionnelles de la plateforme de dématérialisation de la gestion des candidatures, à partir des besoins exprimés et de la solution effectivement réalisée.
+
+L'objectif est de garantir que le système réponde aux attentes des gestionnaires et des administrateurs : organisation des concours, affectation des candidats aux salles, génération et envoi des convocations, tout en assurant la sécurité des accès, la clarté de l'interface et la maintenabilité de l'application. Cette étude pose ainsi les bases fonctionnelles nécessaires avant d'aborder, dans le chapitre suivant, la conception UML du système.
+
+\section{Cahier des charges}
+
+\subsection{Objectif}
+
+Le présent cahier des charges définit les spécifications de la plateforme de gestion des candidatures, réalisée pour le Ministère de l'Économie et des Finances. Il formalise le périmètre, les acteurs, le processus métier, les données à gérer et les règles de gestion. Il constitue le référentiel à partir duquel les besoins fonctionnels et non fonctionnels sont ensuite détaillés.
+
+La solution visée est une application web interne, destinée aux agents du Ministère chargés d'organiser les concours : de l'import des candidats admis jusqu'à l'envoi des convocations. Le système doit permettre de :
+
+\begin{itemize}
+  \item centraliser la gestion des concours, des lieux d'examen (centres, établissements, salles) et des candidats admis ;
+  \item importer la liste des candidats à partir d'un fichier Excel ;
+  \item répartir automatiquement les candidats dans les salles, selon le concours, la capacité et la proximité géographique, avec possibilité d'affectation manuelle ;
+  \item générer les convocations (PDF) et les envoyer par courrier électronique ;
+  \item offrir un tableau de bord pour le suivi opérationnel (effectifs, remplissage, dernière répartition, envois) ;
+  \item sécuriser l'accès par authentification et par rôles (administrateur / gestionnaire).
+\end{itemize}
+
+\subsection{Périmètre}
+
+\paragraph{Inclus}
+
+\begin{itemize}
+  \item authentification des utilisateurs ;
+  \item gestion des comptes gestionnaires par l'administrateur ;
+  \item CRUD des concours (numéro, nom, date et heure d'examen, centres concernés) ;
+  \item CRUD des centres, établissements et salles (capacité, concours associé à la salle) ;
+  \item import Excel, consultation, modification, suppression des candidats et réinitialisation de la liste ;
+  \item répartition automatique, historique des exécutions, réinitialisation des affectations, export des résultats ;
+  \item aperçu des convocations, téléchargement PDF, envoi groupé par e-mail, historique des envois ;
+  \item tableau de bord et identité visuelle MEF.
+\end{itemize}
+
+\paragraph{Exclus (hors périmètre)}
+
+\begin{itemize}
+  \item inscription en ligne des candidats (les listes d'admis arrivent déjà constituées) ;
+  \item espace candidat (consultation ou téléchargement autonome de la convocation) ;
+  \item correction des copies, notes, jurys et publication des résultats ;
+  \item application mobile native ;
+  \item paiement, pré-inscription ou gestion RH au-delà de l'organisation matérielle du concours.
+\end{itemize}
+
+\subsection{Acteurs}
+
+\begin{table}[H]
+\centering
+\caption{Acteurs du système}
+\label{tab:acteurs}
+\begin{spacing}{1}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|p{3.2cm}|p{12.0cm}|}
+\hline
+\rowcolor[HTML]{C9DAF8}
+\textbf{Acteur} & \textbf{Rôle} \\
+\hline
+Gestionnaire &
+Pilote opérationnel : il gère les concours, les lieux, les candidats, lance la répartition, produit et envoie les convocations, consulte le tableau de bord. \\
+\hline
+Administrateur &
+Supervise l'application en lecture seule sur le métier. Il est le seul habilité à créer, modifier ou supprimer les comptes gestionnaires. \\
+\hline
+\end{tabular}%
+}
+\end{spacing}
+\end{table}
+
+Toute action métier suppose une authentification préalable.
+
+\subsection{Processus métier cible}
+
+Le déroulement attendu est le suivant :
+
+\begin{enumerate}
+  \item Le gestionnaire s'authentifie.
+  \item Il saisit le référentiel : centres, puis concours (avec centres affectés), puis établissements et salles (chaque salle est liée à un concours et à une capacité).
+  \item Il importe le fichier Excel des candidats admis ; la liste s'affiche. Il peut modifier, supprimer un candidat ou l'affecter manuellement à une salle.
+  \item Il lance la répartition automatique : le système affecte chaque candidat à un centre, un établissement, une salle et un numéro de place, et signale les cas non affectés.
+  \item Il consulte le tableau de bord (remplissage, effectifs, dernière répartition).
+  \item Il prévisualise les convocations des candidats affectés, éventuellement un échantillon pour contrôle, puis envoie l'ensemble par e-mail (PDF en pièce jointe).
+\end{enumerate}
+
+\subsection{Modules fonctionnels}
+
+Le besoin se découpe en six modules, alignés sur les responsabilités métier :
+
+\begin{table}[H]
+\centering
+\caption{Modules fonctionnels de la plateforme}
+\label{tab:modules}
+\begin{spacing}{1}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|p{5.2cm}|p{10.0cm}|}
+\hline
+\rowcolor[HTML]{C9DAF8}
+\textbf{Module} & \textbf{Responsabilité} \\
+\hline
+Authentification et utilisateurs &
+Connexion, rôles, gestion des comptes gestionnaires. \\
+\hline
+Concours &
+Création, modification, suppression des concours et association aux centres. \\
+\hline
+Lieux &
+Centres (ville d'examen), établissements, salles et capacités. \\
+\hline
+Candidats &
+Import Excel, mise à jour, suppression, affectation manuelle. \\
+\hline
+Répartition &
+Calcul automatique des affectations, historique, réinitialisation. \\
+\hline
+Convocations &
+Assemblage des informations, PDF, envoi e-mail, suivi des envois. \\
+\hline
+\end{tabular}%
+}
+\end{spacing}
+\end{table}
+
+\subsection{Dictionnaire de données}
+
+\begin{itemize}
+  \item \textbf{Candidat :} numéro d'inscription, nom, prénom, CIN, téléphone, ville, âge, e-mail, spécialité, nom du concours, numéro du concours. Après répartition : centre, établissement, salle, numéro de place.
+  \item \textbf{Concours :} numéro de concours, nom, date et heure de l'examen, centres où se déroule l'épreuve.
+  \item \textbf{Centre :} identifiant, nom (ex. Centre Rabat), établissements rattachés, concours concernés.
+  \item \textbf{Établissement :} identifiant, nom, centre de rattachement, salles.
+  \item \textbf{Salle :} identifiant, numéro / nom, nombre de places, un seul concours.
+  \item \textbf{Convocation :} identité du candidat, numéro d'inscription, concours, date et heure, centre, établissement, salle, numéro de place. Le contenu est dérivé de l'affectation ; l'historique conserve le résultat de chaque envoi (envoyé / échec).
+\end{itemize}
+
+\subsection{Règles de gestion}
+
+\begin{itemize}
+  \item Un candidat est rattaché à \textbf{un} concours.
+  \item Une salle n'accueille qu'\textbf{un} concours et ne peut pas dépasser sa \textbf{capacité}.
+  \item La répartition automatique s'appuie sur les salles liées au concours, la \textbf{capacité restante} et la \textbf{ville / région} du candidat (préférence pour un centre proche, dans la même région lorsqu'un centre y existe).
+  \item Un candidat \textbf{sans affectation complète} (centre, établissement, salle, place) ne génère \textbf{pas} de convocation.
+  \item L'administrateur \textbf{ne peut pas} modifier les données métier ni lancer la répartition ou l'envoi.
+  \item L'envoi des convocations est \textbf{groupé} ; un échec sur un destinataire ne doit pas bloquer les autres. Chaque tentative est \textbf{tracée}.
+  \item Les candidats sont \textbf{créés par import Excel}, puis éventuellement mis à jour ou supprimés (pas de saisie unitaire obligatoire à la création).
+\end{itemize}
+
+\subsection{Contraintes}
+
+\begin{itemize}
+  \item \textbf{Métier :} application interne MEF, interface en français, charte (logo) du Ministère.
+  \item \textbf{Organisation :} deux profils distincts, contrôle d'accès systématique.
+  \item \textbf{Techniques imposées :} architecture en \textbf{microservices Spring Boot}, interface \textbf{React}, bases \textbf{PostgreSQL}.
+  \item \textbf{Notification :} envoi des convocations par \textbf{courrier électronique} (canal Gmail retenu pour la réalisation).
+  \item \textbf{Enchaînement :} le référentiel (lieux, concours) et l'import des candidats précèdent la répartition, elle-même préalable aux convocations.
+\end{itemize}
+
+\section{Besoins fonctionnels}
+
+Les besoins fonctionnels décrivent les services que le système doit offrir aux acteurs. Ils sont regroupés par module et identifiés par un code RF.
+
+\subsection{Authentification et comptes}
+
+\tabrf{Besoins fonctionnels --- Authentification et comptes}{tab:rf-auth}{%
+RF-01 & S'authentifier à l'aide d'un identifiant et d'un mot de passe. & Gestionnaire, Administrateur \\
+\hline
+RF-02 & Accéder uniquement aux fonctions autorisées selon le rôle. & Système \\
+\hline
+RF-03 & Mettre fin à la session (déconnexion). & Gestionnaire, Administrateur \\
+\hline
+RF-04 & Créer, modifier, consulter et supprimer les comptes gestionnaires. & Administrateur \\
+\hline
+RF-05 & Consulter l'ensemble des écrans métier en \textbf{lecture seule}. & Administrateur \\
+\hline
+}
+
+\subsection{Concours}
+
+\tabrf{Besoins fonctionnels --- Concours}{tab:rf-concours}{%
+RF-06 & Consulter la liste des concours. & Gestionnaire, Administrateur \\
+\hline
+RF-07 & Créer un concours (numéro, nom, date et heure d'examen, centres). & Gestionnaire \\
+\hline
+RF-08 & Modifier un concours. & Gestionnaire \\
+\hline
+RF-09 & Supprimer un concours. & Gestionnaire \\
+\hline
+RF-10 & Associer un ou plusieurs centres à un concours. & Gestionnaire \\
+\hline
+}
+
+\subsection{Lieux d'examen}
+
+\tabrf{Besoins fonctionnels --- Lieux d'examen}{tab:rf-lieux}{%
+RF-11 & Consulter les centres, établissements et salles. & Gestionnaire, Administrateur \\
+\hline
+RF-12 & Créer, modifier et supprimer un \textbf{centre} (ville d'examen). & Gestionnaire \\
+\hline
+RF-13 & Créer, modifier et supprimer un \textbf{établissement} rattaché à un centre. & Gestionnaire \\
+\hline
+RF-14 & Créer, modifier et supprimer une \textbf{salle} (capacité, un seul concours). & Gestionnaire \\
+\hline
+}
+
+\subsection{Candidats}
+
+\tabrf{Besoins fonctionnels --- Candidats}{tab:rf-candidats}{%
+RF-15 & Importer la liste des candidats admis à partir d'un fichier \textbf{Excel}. & Gestionnaire \\
+\hline
+RF-16 & Consulter la liste des candidats. & Gestionnaire, Administrateur \\
+\hline
+RF-17 & Modifier les informations d'un candidat. & Gestionnaire \\
+\hline
+RF-18 & Supprimer un candidat. & Gestionnaire \\
+\hline
+RF-19 & Affecter \textbf{manuellement} un candidat à une salle (dans la limite de capacité). & Gestionnaire \\
+\hline
+RF-20 & Réinitialiser la liste des candidats. & Gestionnaire \\
+\hline
+}
+
+\subsection{Répartition}
+
+\tabrf{Besoins fonctionnels --- Répartition}{tab:rf-repartition}{%
+RF-21 & Lancer la \textbf{répartition automatique} des candidats dans les salles. & Gestionnaire \\
+\hline
+RF-22 & Affecter chaque candidat selon le concours, la \textbf{capacité} et la \textbf{proximité géographique} (ville / région). & Système \\
+\hline
+RF-23 & Signaler les candidats non affectés (capacité insuffisante, ville non identifiée, concours sans salle, etc.). & Système \\
+\hline
+RF-24 & Consulter l'historique des exécutions de répartition. & Gestionnaire, Administrateur \\
+\hline
+RF-25 & Réinitialiser les affectations sans relancer le calcul. & Gestionnaire \\
+\hline
+RF-26 & Exporter les résultats de répartition (PDF / DOCX). & Gestionnaire, Administrateur \\
+\hline
+}
+
+\subsection{Convocations}
+
+\tabrf{Besoins fonctionnels --- Convocations}{tab:rf-convocations}{%
+RF-27 & Générer l'aperçu des convocations pour les candidats \textbf{entièrement affectés}. & Gestionnaire, Administrateur \\
+\hline
+RF-28 & Produire une convocation \textbf{PDF} (identité, concours, date et heure, lieu, numéro de place). & Système \\
+\hline
+RF-29 & Télécharger le PDF d'une convocation. & Gestionnaire, Administrateur \\
+\hline
+RF-30 & Envoyer les convocations par \textbf{e-mail} (envoi groupé, PDF en pièce jointe). & Gestionnaire \\
+\hline
+RF-31 & Tracer chaque envoi (succès ou échec) sans interrompre le lot en cas d'erreur individuelle. & Système \\
+\hline
+RF-32 & Consulter l'historique des envois et le réinitialiser. & Gestionnaire (réinit.) / les deux (consultation) \\
+\hline
+RF-33 & Exporter la liste des convocations (PDF / DOCX). & Gestionnaire, Administrateur \\
+\hline
+}
+
+\subsection{Tableau de bord}
+
+\tabrf{Besoins fonctionnels --- Tableau de bord}{tab:rf-dashboard}{%
+RF-34 & Afficher les indicateurs opérationnels : nombre de candidats, remplissage des salles, dernière répartition, suivi des envois. & Gestionnaire, Administrateur \\
+\hline
+}
+
+\section{Besoins non fonctionnels}
+
+Les besoins non fonctionnels précisent les qualités attendues du système. Ils sont identifiés par un code RNF.
+
+\subsection{Sécurité}
+
+\begin{itemize}
+  \item \textbf{RNF-01} --- Toute ressource métier est accessible uniquement après authentification.
+  \item \textbf{RNF-02} --- Les mots de passe sont stockés de façon sécurisée (hachage).
+  \item \textbf{RNF-03} --- Les droits sont appliqués côté serveur : l'administrateur ne peut pas modifier le métier ; seul le gestionnaire lance la répartition et l'envoi.
+  \item \textbf{RNF-04} --- La session utilisateur se termine à la fermeture de l'onglet.
+  \item \textbf{RNF-05} --- Les secrets (jeton d'authentification, messagerie, base de données) ne doivent pas être figés en production.
+\end{itemize}
+
+\subsection{Utilisabilité}
+
+\begin{itemize}
+  \item \textbf{RNF-06} --- Interface en \textbf{français}, navigation par domaines métier (candidats, concours, lieux, répartition, convocations).
+  \item \textbf{RNF-07} --- L'administrateur voit clairement le mode \textbf{lecture seule}.
+  \item \textbf{RNF-08} --- Charte visuelle du MEF (logo) sur la connexion et l'en-tête.
+\end{itemize}
+
+\subsection{Fiabilité}
+
+\begin{itemize}
+  \item \textbf{RNF-09} --- Un échec d'envoi pour un candidat n'annule pas l'envoi des autres.
+  \item \textbf{RNF-10} --- La répartition signale explicitement les cas non traités (alertes).
+  \item \textbf{RNF-11} --- Les tentatives d'envoi sont historisées (envoyé / échec).
+\end{itemize}
+
+\subsection{Maintenabilité et évolutivité}
+
+\begin{itemize}
+  \item \textbf{RNF-12} --- Découpage en \textbf{microservices} (authentification, candidats, concours, lieux, répartition, convocations) afin d'isoler les évolutions.
+  \item \textbf{RNF-13} --- Une base de données par service, pour limiter les couplages.
+  \item \textbf{RNF-14} --- Schémas versionnés afin de faire évoluer le modèle sans perte de contrôle.
+\end{itemize}
+
+\subsection{Contraintes techniques}
+
+\begin{itemize}
+  \item \textbf{RNF-15} --- Backend \textbf{Spring Boot} (microservices), frontend \textbf{React}, bases \textbf{PostgreSQL}.
+  \item \textbf{RNF-16} --- Point d'entrée unique pour le navigateur (passerelle d'API).
+  \item \textbf{RNF-17} --- Envoi des convocations par courrier électronique.
+\end{itemize}
+
+\subsection{Exploitabilité}
+
+\begin{itemize}
+  \item \textbf{RNF-18} --- Messages d'erreur compréhensibles pour l'utilisateur (fichier d'import invalide, capacité dépassée, service de messagerie non configuré, etc.).
+\end{itemize}
+
+\section{Conclusion}
+
+Ce chapitre a permis de formaliser le cahier des charges de la plateforme de dématérialisation de la gestion des candidatures, ainsi que les besoins fonctionnels et non fonctionnels qui en découlent.
+
+Dans un premier temps, le périmètre du système a été précisé : acteurs, processus cible, modules métier et règles de gestion, depuis l'import des candidats admis jusqu'à l'envoi des convocations. Les besoins fonctionnels ont ensuite été structurés par module (authentification, concours, lieux, candidats, répartition, convocations et tableau de bord). Cette analyse a mis en évidence la nécessité d'un système intégré, capable d'automatiser en particulier la répartition des candidats tout en conservant un contrôle humain (affectation manuelle, aperçu avant envoi).
+
+Les besoins non fonctionnels ont ensuite été définis afin d'assurer la qualité globale du système, notamment en matière de sécurité des accès, d'utilisabilité, de fiabilité des envois et de maintenabilité, grâce à une organisation en modules clairement séparés.
+
+Ainsi, cette étude établit les fondations nécessaires à la conception du système. Le chapitre suivant sera consacré à la conception détaillée, à travers les diagrammes de cas d'utilisation, de séquence et de classes.
+
+\end{onehalfspace}

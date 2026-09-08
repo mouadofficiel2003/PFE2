@@ -1,49 +1,103 @@
 @startuml diagramme-sequence-repartition-automatique
 !theme plain
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam dpi 96
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 
-title Répartition automatique — processus complet (entièrement automatisé après le déclenchement)
+<style>
+title {
+  FontSize 26
+  FontStyle bold
+}
+document {
+  FontSize 22
+}
+sequenceDiagram {
+  actor {
+    FontSize 22
+  }
+  participant {
+    FontSize 20
+  }
+  database {
+    FontSize 20
+  }
+  arrow {
+    FontSize 20
+    LineThickness 1.5
+  }
+  divider {
+    FontSize 20
+  }
+  group {
+    FontSize 18
+  }
+  note {
+    FontSize 18
+  }
+  lifeLine {
+    LineThickness 1.5
+  }
+}
+</style>
+
+title Dématérialisation des candidatures — Séquence : répartition automatique
 
 actor "Gestionnaire" as Gest
-participant "Système de\nrépartition automatique" as Sys
-participant "Référentiel\nconcours" as Conc
-participant "Référentiel\ncentres, établissements,\nsalles" as Lieux
-participant "Fichier / base\ncandidats" as Cand
+participant "Application\nWeb (React)" as React
+participant "Passerelle\nAPI" as GW
+participant "Répartition" as Rep
+participant "Concours" as Conc
+participant "Lieux" as Lieux
+participant "Candidats" as Cand
 database "PostgreSQL" as DB
 
-== Déclenchement unique ==
-Gest -> Sys : Clique sur « Commencer répartition »
+== Déclenchement ==
+Gest -> React : Clique sur « Lancer la répartition »
+React -> GW : POST /api/repartition/run
+GW -> Rep : Transmet POST /api/repartition/run
 
-== Traitement système : boucle sur les concours ==
-Sys -> Conc : Obtenir la liste des concours à traiter
-Conc -> DB : Charger tous les concours
-DB --> Conc : Liste des concours
-Conc --> Sys : Concours à traiter
+== Lecture des référentiels ==
+Rep -> Conc : GET /api/concours
+Conc --> Rep : 200 OK { liste des concours }
 
 loop Pour chaque concours
-  Sys -> Conc : Charger le concours courant\net ses centres affectés\n(chaque centre correspond au lieu\noù le concours se déroule)
-  Conc -> DB : Charger concours et liaison centres
-  DB --> Conc : Concours + centres associés
-  Conc --> Sys : Concours courant et centres de passage
+  Rep -> Lieux : GET /api/salles?numeroConcours=
+  Lieux --> Rep : 200 OK { salles, centres,\ncapacités }
+end
 
-  Sys -> Lieux : Récupérer établissements et salles\npour ces centres et ce concours\n(capacités disponibles)
-  Lieux -> DB : Charger structures et capacités
-  DB --> Lieux : Salles éligibles et places restantes
-  Lieux --> Sys : Offre de salles par centre
+Rep -> Cand : GET /api/candidats
+Cand --> Rep : 200 OK { candidats\n(ville, concours) }
 
-  Sys -> Cand : Lire les candidats concernés\npar ce concours\n(concours du candidat, ville du candidat)
-  Cand -> DB : Charger les candidats du concours courant
-  DB --> Cand : Enregistrements candidats
-  Cand --> Sys : Liste des candidats\navec concours et ville
-
-  loop Pour chaque candidat de ce concours
-    Sys -> Sys : Faire correspondre la ville du candidat\navec le centre dont le lieu convient\npour ce concours
-    Sys -> Sys : Choisir une salle dans ce centre,\nen respectant la capacité
-    Sys -> DB : Enregistrer l’affectation\n(candidat → centre, établissement, salle)
+== Calcul du plan (en mémoire) ==
+loop Pour chaque candidat\n(trié par numéro d'inscription)
+  Rep -> Rep : Classer les centres du concours\npar proximité\n(même ville, même région, distance)
+  alt Une salle a encore de la place
+    Rep -> Rep : Réserver une place\n(centre, établissement, salle, place)
+  else Impossible d'affecter
+    Rep -> Rep : Alerte (capacité, aucun centre,\nconcours inconnu, ville inconnue)
   end
 end
 
-Sys --> Gest : Répartition terminée\n(synthèse : affectations réussies,\nalertes éventuelles si capacité dépassée)
+== Écriture des affectations et de l'historique ==
+Rep -> Cand : PATCH /api/candidats/affectations
+Cand --> Rep : 200 OK
+Rep -> DB : INSERT run, affectations, alertes
+DB --> Rep : OK
+Rep --> GW : 201 Created { synthèse }
+GW --> React : 201 Created
+React --> Gest : Affiche le résultat\n(affectés, alertes)
+
+note over React, Rep
+  La requête du navigateur passe par la passerelle
+  avec Authorization: Bearer <jeton>.
+  Le service répartition relaie ce jeton
+  vers concours, lieux et candidats
+  (appels de service à service).
+  Redistribution complète : les candidats non placés
+  voient leur affectation remise à zéro.
+end note
 
 @enduml

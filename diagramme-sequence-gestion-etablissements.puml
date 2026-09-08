@@ -1,63 +1,111 @@
 @startuml diagramme-sequence-gestion-etablissements
 !theme plain
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam dpi 96
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 
-title Dématérialisation des candidatures — Gestion des établissements\n(seul périmètre : établissement, concours, salles rattachées)
+<style>
+title {
+  FontSize 26
+  FontStyle bold
+}
+document {
+  FontSize 22
+}
+sequenceDiagram {
+  actor {
+    FontSize 22
+  }
+  participant {
+    FontSize 20
+  }
+  database {
+    FontSize 20
+  }
+  arrow {
+    FontSize 20
+    LineThickness 1.5
+  }
+  divider {
+    FontSize 20
+  }
+  group {
+    FontSize 18
+  }
+  note {
+    FontSize 18
+  }
+  lifeLine {
+    LineThickness 1.5
+  }
+}
+</style>
+
+title Dématérialisation des candidatures — Séquence : gestion des établissements
 
 actor "Gestionnaire" as Gestionnaire
 participant "Application Web\n(React)" as React
-participant "Passerelle API\n(optionnel)" as GW
-participant "Service Établissements\n(Spring Boot)" as Svc
+participant "Passerelle API" as GW
+participant "Service Lieux\n(Spring Boot)" as Svc
 database "PostgreSQL" as DB
 
 == Consulter les établissements ==
-Gestionnaire -> React : Sélectionne un centre ou filtre\npour voir les établissements
-React -> GW : GET /etablissements\n( query : centreId optionnel )
-GW -> Svc : Liste des établissements
-Svc -> DB : SELECT établissements et liaisons concours
-DB --> Svc : Données
-Svc --> React : 200 OK\n( liste : nom, concours, aperçu salles )
-React --> Gestionnaire : Affiche les établissements
+Gestionnaire -> React : Dans un centre déjà ouvert,\nconsulte les établissements
+React -> GW : GET /api/centres/{id}
+GW -> Svc : Transmet GET /api/centres/{id}
+Svc -> DB : SELECT établissements du centre
+DB --> Svc : Liste (noms, salles)
+Svc --> GW : 200 OK { centre, établissements }
+GW --> React : 200 OK
+React --> Gestionnaire : Affiche les établissements du centre
 
 == Ajouter un établissement ==
-Gestionnaire -> React : Saisit nom de l'établissement,\nconcours dans cet établissement,\nrattachement au centre parent
-React -> GW : POST /etablissements\n( corps : nom, centreId, liste ids concours )
-GW -> Svc : Création + liaisons établissement-concours
-Svc -> DB : INSERT établissement ; INSERT liaisons concours
-DB --> Svc : Identifiants créés
-Svc --> React : 201 Created
-React --> Gestionnaire : Établissement ajouté
+Gestionnaire -> React : Saisit le nom de l'établissement
+React -> GW : POST /api/centres/{id}/etablissements\n{ nomEtablissement }
+GW -> Svc : Transmet la création
+Svc -> Svc : Vérifie l'unicité du nom\ndans le centre
+alt Nom déjà utilisé dans le centre
+  Svc --> GW : 409 Conflict
+  GW --> React : 409 Conflict
+  React --> Gestionnaire : Message d'erreur
+else Création acceptée
+  Svc -> DB : INSERT établissement
+  DB --> Svc : id_etablissement généré
+  Svc --> GW : 201 Created { établissement }
+  GW --> React : 201 Created
+  React --> Gestionnaire : Établissement ajouté
+end
 
-== Modifier les informations de l'établissement ==
-Gestionnaire -> React : Modifie le nom et/ou les concours\nliés à cet établissement
-React -> GW : PATCH /etablissements/idEtab\n( corps : nom, liste ids concours )
-GW -> Svc : Mise à jour infos et liaisons
-Svc -> DB : UPDATE établissement ; MAJ liaisons concours
+== Modifier un établissement ==
+Gestionnaire -> React : Modifie le nom de l'établissement
+React -> GW : PUT /api/etablissements/{id}\n{ nomEtablissement }
+GW -> Svc : Transmet la mise à jour
+Svc -> Svc : Vérifie l'unicité du nom\ndans le centre
+Svc -> DB : UPDATE établissement
 DB --> Svc : OK
-Svc --> React : 200 OK
+Svc --> GW : 200 OK { établissement }
+GW --> React : 200 OK
 React --> Gestionnaire : Affichage mis à jour
 
-== Modifier les salles de l'établissement ==
-Gestionnaire -> React : Gère les salles rattachées :\naffectation, retrait, réorganisation
-React -> GW : PUT /etablissements/idEtab/salles\n( corps : liste ids salles ou rattachements )
-GW -> Svc : Mise à jour rattachements établissement-salles
-Svc -> DB : UPDATE salle.etablissement_id ou liaison
-DB --> Svc : OK
-Svc --> React : 200 OK\n( établissement avec ses salles )
-React --> Gestionnaire : Liste des salles à jour
-
 == Supprimer un établissement ==
-Gestionnaire -> React : Confirme la suppression
-React -> GW : DELETE /etablissements/idEtab
-GW -> Svc : Contrôle salles, répartition candidats…
-Svc -> DB : DELETE ou cascade contrôlée
-DB --> Svc : OK ou contrainte
-Svc --> React : 204 ou 409
-React --> Gestionnaire : Établissement retiré ou erreur
+Gestionnaire -> React : Confirme la suppression\n(établissement et ses salles)
+React -> GW : DELETE /api/etablissements/{id}
+GW -> Svc : Transmet la suppression
+Svc -> DB : DELETE établissement\n(cascade salles)
+DB --> Svc : OK
+Svc --> GW : 200 OK
+GW --> React : 200 OK
+React --> Gestionnaire : Établissement retiré
 
-note right of Svc
-  Un établissement porte : nom, concours qui y sont passés,\nliste des salles qui lui sont rattachées.
+note over React, Svc
+  Toutes les requêtes passent par la passerelle
+  avec Authorization: Bearer <jeton>.
+  Un établissement appartient à un centre
+  et porte un nom unique dans ce centre.
+  Les concours y apparaissent en lecture
+  (via les salles) ; les salles se gèrent à part.
 end note
 
 @enduml

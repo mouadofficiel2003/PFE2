@@ -124,6 +124,9 @@ final class CandidatExcelParser {
     }
 
     private static boolean looksLikeHeaderRow(Row row) {
+        if (row == null || row.getFirstCellNum() < 0 || row.getLastCellNum() < 0) {
+            return false;
+        }
         for (int c = row.getFirstCellNum(); c < row.getLastCellNum(); c++) {
             String n = normHeader(getCellString(row.getCell(c)));
             if ("cin".equals(n)) {
@@ -140,6 +143,9 @@ final class CandidatExcelParser {
 
     private static Map<String, Integer> buildHeaderMap(Row headerRow) {
         Map<String, Integer> raw = new HashMap<>();
+        if (headerRow == null || headerRow.getFirstCellNum() < 0 || headerRow.getLastCellNum() < 0) {
+            return new HashMap<>();
+        }
         for (int c = headerRow.getFirstCellNum(); c < headerRow.getLastCellNum(); c++) {
             String label = normHeader(getCellString(headerRow.getCell(c)));
             if (!label.isEmpty()) {
@@ -248,10 +254,11 @@ final class CandidatExcelParser {
                     yield DATA_FORMATTER.formatCellValue(cell);
                 }
                 double v = cell.getNumericCellValue();
-                if (v == Math.rint(v) && v >= Short.MIN_VALUE && v <= Short.MAX_VALUE) {
+                // Entiers Excel (CIN, téléphone, n° inscription) : éviter 1.2345678E7
+                if (!Double.isNaN(v) && !Double.isInfinite(v) && v == Math.rint(v) && Math.abs(v) <= 9_007_199_254_740_992L) {
                     yield String.valueOf((long) v);
                 }
-                yield String.valueOf(v);
+                yield DATA_FORMATTER.formatCellValue(cell).trim();
             }
             default -> DATA_FORMATTER.formatCellValue(cell).trim();
         };

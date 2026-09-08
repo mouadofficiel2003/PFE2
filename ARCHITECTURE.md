@@ -4,8 +4,8 @@
 > (exam/competition management). Intended as onboarding context for developers
 > and AI agents working on this codebase.
 >
-> Last reviewed: **2026-09-01** — backend tests (`.\mvnw.cmd test`, 34 tests) and frontend
-> build (`npm run build`) verified OK.
+> Last reviewed: **2026-09-08** — recross-checked against controllers, Flyway, RestClient
+> call graph, frontend routes, and tests (`.\mvnw.cmd test`, 34 tests).
 
 ## Overview
 
@@ -75,9 +75,12 @@ Because each service owns its own database, cross-service relationships use
 | ----------- | ----------------------- | --------------- | -------------------------------------------------- |
 | Candidat    | `numero_inscription`    | candidat        | repartition (history), convocation (send log)      |
 | Concours    | `numero_concours`       | concours        | candidat, lieux (`salle.numero_concours`), repartition, convocation |
-| Centre      | `id_centre`             | lieux           | concours (`concours_affectation_centre`), candidat (affectation) |
-| Établissement | `id_etablissement`    | lieux           | candidat (affectation), repartition (history)      |
-| Salle       | `id_salle`              | lieux           | candidat (affectation), repartition (history)      |
+| Centre      | `id_centre`             | lieux           | concours (`concours_affectation_centre`), candidat (`id_centre`), repartition history (`centre_id`) |
+| Établissement | `id_etablissement`    | lieux           | candidat (`id_etablissement`), repartition history (`etablissement_id`) |
+| Salle       | `id_salle`              | lieux           | candidat (`id_salle`), repartition history (`salle_id`) |
+
+In `data_repartition`, the history tables use `centre_id` / `etablissement_id` / `salle_id`
+rather than the canonical `id_*` names. Same logical keys, different SQL column names.
 
 Denormalized copies are kept where needed to avoid cross-service joins at read time:
 
@@ -120,6 +123,8 @@ Key schema notes:
 - `concours_affectation_centre.id_centre` is a required logical reference to `lieux.centre.id_centre`.
 - `salle.numero_concours` is an optional logical reference to `concours.numero_concours`.
 - `repartition_run.message` stores failure reasons when a run ends with status `ECHEC`.
+- `repartition_affectation` / `repartition_alerte` store lieu refs as `centre_id` /
+  `etablissement_id` / `salle_id` (not `id_centre` / `id_etablissement` / `id_salle`).
 - `convocation_envoi` stores send attempts only — convocation content is **derived** at read time.
 
 Local default credentials: `postgres` / `postgres` on `localhost:5432`. These are **dev-only
@@ -267,6 +272,9 @@ East-west traffic goes **directly service-to-service** (not through the gateway)
 **lieux-service → concours-service** (`ConcoursExistenceClient`)
 
 - When a salle is linked to a competition: `GET /api/concours/{numeroConcours}` to validate it exists.
+- When a salle is created or updated with a `numero_concours`: also
+  `POST /api/concours/{numeroConcours}/affectations` so the salle's centre is attached to that
+  competition (idempotent; adding only — removing a centre remains a concours-form action).
 - When listing centres: `GET /api/concours/by-centre/{idCentre}` to enrich with planned competitions.
 - This endpoint reads **only the concours database** (no call back to lieux) — see deadlock note below.
 - When a centre is renamed: `PATCH /api/concours/affectations/centre/{idCentre}` to propagate the new
@@ -493,18 +501,21 @@ When seeding data manually (or via `scripts/seed-demo-data.ps1`):
 
 1. **Centres** (lieux-service) — create geographic poles (`Centre Rabat`, etc.).
 2. **Concours** (concours-service) — create competitions and assign centres by `id_centre`.
-3. **Établissements + salles** (lieux-service) — create rooms linked to a `numero_concours`.
-4. **Candidats** (candidat-service) — import via Excel or CRUD.
+3. **Établissements + salles** (lieux-service) — create rooms linked to a `numero_concours`
+   (this also upserts the centre on that competition via `POST …/affectations`).
+4. **Candidats** (candidat-service) — **Excel import only** to create rows (`POST /api/candidats/import`);
+   then update / delete / manual seat assignment. There is no `POST /api/candidats`.
 5. **Répartition** (repartition-service) — trigger `POST /api/repartition/run`.
 6. **Convocations** (convocation-service) — preview at `/convocations`, then bulk-send with
    `POST /api/convocations/envoyer` (requires Gmail `MAIL_USERNAME` / `MAIL_PASSWORD`).
 
 ## UML diagrams
 
-Twelve PlantUML source files live at the repository root (`diagramme-*.puml`), covering
-use cases, class models, and sequence flows (auth, candidats, concours, lieux, repartition,
-convocations). The general use-case PNG is committed (`diagramme-cas-utilisation-general.png`);
-other PNGs can be generated with:
+Thirteen PlantUML source files live at the repository root (`diagramme-*.puml`): **twelve UML**
+diagrams (use cases, class models, and sequence flows for auth, candidats, concours, lieux,
+repartition, convocations) plus **`diagramme-gantt.puml`** for the project schedule. The general
+use-case PNG is committed (`diagramme-cas-utilisation-general.png`); other PNGs can be generated
+with:
 
 ```powershell
 node scripts/plantuml-png.mjs diagramme-cas-utilisation-general.puml diagramme-cas-utilisation-general.png
@@ -550,6 +561,8 @@ relies on PowerShell scripts:
 | `backend/run-backend.ps1` | Starts gateway + 6 services in separate PowerShell windows; sources root `local-env.ps1` if present |
 | `frontend/run-dev.ps1` | Starts Vite dev server on port 5173 |
 | `scripts/seed-demo-data.ps1` | Seeds demo centres, concours, salles via direct API calls |
+| `scripts/plantuml-png.mjs` | Renders a `.puml` file to PNG via the public PlantUML server |
+| `scripts/gantt-word.ps1` / `gantt-word.py` | Gantt chart helpers (Word / Python), not used at runtime |
 | `local-env.ps1` (gitignored) | Local env: `DB_PASSWORD`, `GATEWAY_PORT`, `MAIL_*`, `JWT_SECRET` |
 
 Production deployment is not containerized in-repo: each service is a standalone Spring Boot
@@ -630,8 +643,8 @@ let gestionnaires download tabular summaries without an extra backend endpoint.
 | `backend/`       | API gateway + Spring Boot microservices                           |
 | `frontend/`      | React + TypeScript (Vite) SPA « CandidatPlus », exports PDF/DOCX |
 | `database/`      | Flyway migration documentation (scripts live in each service)     |
-| `scripts/`       | Demo seed script, PlantUML PNG generator, sample JSON bodies      |
-| `diagramme-*.puml` | UML diagrams (use cases, classes, sequences)                    |
+| `scripts/`       | Demo seed, PlantUML PNG generator, Gantt helpers, sample JSON bodies |
+| `diagramme-*.puml` | UML diagrams (use cases, classes, sequences) + Gantt schedule |
 | `projet.txt`     | Original PFE requirements and domain attribute definitions        |
 | `verify-env.ps1` | Dev environment checker (Java, Maven, Node, PostgreSQL)           |
 | `local-env.ps1`  | Gitignored local overrides, loaded by `run-backend.ps1`           |

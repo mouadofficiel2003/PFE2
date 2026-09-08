@@ -3,43 +3,41 @@
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 
-title Dématérialisation des candidatures — Séquence d'authentification (Gestionnaire)
+title Dématérialisation des candidatures — Séquence d'authentification
 
-actor "Gestionnaire" as Gestionnaire
+actor "Utilisateur\n(Gestionnaire ou Administrateur)" as User
 participant "Application Web\n(React)" as React
-participant "Passerelle API\n(optionnel)" as GW
+participant "Passerelle API" as GW
 participant "Service Authentification\n(Spring Boot)" as Auth
 database "PostgreSQL" as DB
 
-Gestionnaire -> React : Accède à la page de connexion
-Gestionnaire -> React : Saisit nom d'utilisateur et mot de passe
+User -> React : Accède à la page de connexion
+User -> React : Saisit nom d'utilisateur et mot de passe
+React -> React : Vérifie que les champs sont renseignés
 
-React -> React : Validation minimale côté client
+React -> GW : POST /auth/login\n{ username, password }
+GW -> Auth : Transmet POST /auth/login
 
-alt Avec passerelle API
-  React -> GW : POST /auth/login\n{ username, password }
-  GW -> Auth : Transmet la requête
-else Sans passerelle
-  React -> Auth : POST /auth/login\n{ username, password }
-end
+Auth -> DB : Recherche l'utilisateur\n(nom_utilisateur)
+DB --> Auth : Enregistrement\n(empreinte, rôle, actif)\nou aucun résultat
 
-Auth -> Auth : Préparer la vérification
-
-Auth -> DB : Rechercher utilisateur\n(comparaison mot de passe haché)
-DB --> Auth : Utilisateur et statut\nou aucun résultat
+Auth -> Auth : Vérifie le compte actif\net le mot de passe
 
 alt Échec (identifiants invalides\nou compte désactivé)
-  Auth --> React : 401 Unauthorized
-  React --> Gestionnaire : Message d'erreur
+  Auth --> GW : 401 Unauthorized
+  GW --> React : 401 Unauthorized
+  React --> User : Message d'erreur
 else Succès
-  Auth -> Auth : Générer JWT\n(access / refresh si prévu)
-  Auth --> React : 200 OK\n{ token(s), infos utilisateur }
-  React -> React : Stocker le jeton\n(selon stratégie choisie)
-  React --> Gestionnaire : Accès à l'espace gestionnaire
+  Auth -> Auth : Génère un JWT d'accès\n(sujet = nom, rôle)
+  Auth --> GW : 200 OK\n{ accessToken, tokenType,\nusername, role }
+  GW --> React : 200 OK
+  React -> React : Stocke le jeton\n(sessionStorage)
+  React --> User : Accès à l'application\n(tableau de bord)
 end
 
-note right of Auth
-  Les requêtes suivantes portent le JWT\n(ex. Authorization: Bearer ...)
+note over React, Auth
+  Les requêtes suivantes passent par la passerelle\navec l'en-tête Authorization: Bearer <jeton>.
+  La passerelle transmet le jeton ; chaque service le valide.
 end note
 
 @enduml

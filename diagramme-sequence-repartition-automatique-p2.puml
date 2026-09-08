@@ -1,0 +1,71 @@
+@startuml diagramme-sequence-repartition-automatique-2
+!theme plain
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam dpi 150
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+<style>
+title {
+  FontSize 26
+  FontStyle bold
+}
+document {
+  FontSize 22
+}
+sequenceDiagram {
+  actor {
+    FontSize 22
+  }
+  participant {
+    FontSize 20
+  }
+  database {
+    FontSize 20
+  }
+  arrow {
+    FontSize 20
+    LineThickness 1.5
+  }
+  divider {
+    FontSize 20
+  }
+  group {
+    FontSize 18
+  }
+  note {
+    FontSize 18
+  }
+  lifeLine {
+    LineThickness 1.5
+  }
+}
+</style>
+
+title Dématérialisation des candidatures — Répartition automatique (2/3)\nLecture des référentiels
+
+participant "Service Répartition\n(Spring Boot)" as Rep
+participant "Service Concours\n(Spring Boot)" as Conc
+participant "Service Lieux\n(Spring Boot)" as Lieux
+participant "Service Candidats\n(Spring Boot)" as Cand
+
+== Lecture des référentiels ==
+Rep -> Conc : GET /api/concours
+Conc --> Rep : 200 OK { liste des concours }
+
+loop Pour chaque concours
+  Rep -> Lieux : GET /api/salles?numeroConcours=
+  Lieux --> Rep : 200 OK { salles, centres,\ncapacités }
+end
+
+Rep -> Cand : GET /api/candidats
+Cand --> Rep : 200 OK { candidats\n(ville, concours) }
+
+note over Rep, Cand
+  Appels de service à service :
+  le jeton JWT du gestionnaire est relayé
+  vers concours, lieux et candidats.
+end note
+
+@enduml

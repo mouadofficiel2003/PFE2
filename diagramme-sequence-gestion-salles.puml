@@ -1,54 +1,112 @@
 @startuml diagramme-sequence-gestion-salles
 !theme plain
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam dpi 96
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 
-title Dématérialisation des candidatures — Gestion des salles\n(seul périmètre : salle, concours, capacité)
+<style>
+title {
+  FontSize 26
+  FontStyle bold
+}
+document {
+  FontSize 22
+}
+sequenceDiagram {
+  actor {
+    FontSize 22
+  }
+  participant {
+    FontSize 20
+  }
+  database {
+    FontSize 20
+  }
+  arrow {
+    FontSize 20
+    LineThickness 1.5
+  }
+  divider {
+    FontSize 20
+  }
+  group {
+    FontSize 18
+  }
+  note {
+    FontSize 18
+  }
+  lifeLine {
+    LineThickness 1.5
+  }
+}
+</style>
+
+title Dématérialisation des candidatures — Séquence : gestion des salles
 
 actor "Gestionnaire" as Gestionnaire
 participant "Application Web\n(React)" as React
-participant "Passerelle API\n(optionnel)" as GW
-participant "Service Salles\n(Spring Boot)" as Svc
+participant "Passerelle API" as GW
+participant "Service Lieux\n(Spring Boot)" as Svc
 database "PostgreSQL" as DB
 
 == Consulter les salles ==
-Gestionnaire -> React : Sélectionne un établissement\npour afficher ses salles
-React -> GW : GET /salles\n( query : etablissementId )
-GW -> Svc : Liste des salles filtrée
-Svc -> DB : SELECT salles
-DB --> Svc : Données
-Svc --> React : 200 OK\n( nom salle, concours, capacité )
-React --> Gestionnaire : Affiche les salles
+Gestionnaire -> React : Dans un centre déjà ouvert,\nconsulte les salles d'un établissement
+React -> GW : GET /api/centres/{id}
+GW -> Svc : Transmet GET /api/centres/{id}
+Svc -> DB : SELECT centre, établissements, salles
+DB --> Svc : Détail (salles imbriquées)
+Svc --> GW : 200 OK { centre, établissements,\nsalles }
+GW --> React : 200 OK
+React --> Gestionnaire : Affiche les salles\n(nom, places, concours)
 
 == Ajouter une salle ==
-Gestionnaire -> React : Saisit nom de la salle,\nconcours qui s'y déroule,\ncapacité, rattachement à l'établissement
-React -> GW : POST /salles\n( corps : nom, idConcours, capacite, etablissementId )
-GW -> Svc : Création salle
-Svc -> DB : INSERT salle
-DB --> Svc : Identifiant créé
-Svc --> React : 201 Created
-React --> Gestionnaire : Salle ajoutée à la liste
+Gestionnaire -> React : Saisit le nom, le nombre de places\net éventuellement un concours
+React -> GW : POST /api/etablissements/{id}/salles\n{ nomSalle, nombrePlaces, numeroConcours }
+GW -> Svc : Transmet la création
+Svc -> Svc : Vérifie l'unicité du nom\ndans l'établissement\net l'existence du concours
+alt Nom déjà utilisé dans l'établissement
+  Svc --> GW : 409 Conflict
+  GW --> React : 409 Conflict
+  React --> Gestionnaire : Message d'erreur
+else Création acceptée
+  Svc -> DB : INSERT salle
+  DB --> Svc : id_salle généré
+  Svc --> GW : 201 Created { salle }
+  GW --> React : 201 Created
+  React --> Gestionnaire : Salle ajoutée
+end
 
 == Modifier une salle ==
-Gestionnaire -> React : Modifie nom, concours et/ou capacité
-React -> GW : PATCH /salles/idSalle\n( corps : nom, idConcours, capacite )
-GW -> Svc : Mise à jour
+Gestionnaire -> React : Modifie le nom, les places\net/ou le concours
+React -> GW : PUT /api/salles/{idSalle}\n{ nomSalle, nombrePlaces, numeroConcours }
+GW -> Svc : Transmet la mise à jour
+Svc -> Svc : Vérifie l'unicité du nom\ndans l'établissement\net l'existence du concours
 Svc -> DB : UPDATE salle
 DB --> Svc : OK
-Svc --> React : 200 OK
+Svc --> GW : 200 OK { salle }
+GW --> React : 200 OK
 React --> Gestionnaire : Affichage mis à jour
 
 == Supprimer une salle ==
 Gestionnaire -> React : Confirme la suppression de la salle
-React -> GW : DELETE /salles/idSalle
-GW -> Svc : Vérification répartition candidats…
-Svc -> DB : DELETE ou désactivation
-DB --> Svc : OK ou contrainte
-Svc --> React : 204 ou 409
-React --> Gestionnaire : Salle retirée ou erreur
+React -> GW : DELETE /api/salles/{idSalle}
+GW -> Svc : Transmet la suppression
+Svc -> DB : DELETE salle
+DB --> Svc : OK
+Svc --> GW : 200 OK
+GW --> React : 200 OK
+React --> Gestionnaire : Salle retirée
 
-note right of Svc
-  Une salle porte : nom, concours organisé dans cette salle,\ncapacité (nombre de places).
+note over React, Svc
+  Toutes les requêtes passent par la passerelle
+  avec Authorization: Bearer <jeton>.
+  Une salle appartient à un établissement,
+  porte un nom unique dans cet établissement,
+  une capacité, et au plus un concours.
+  GET /api/salles?numeroConcours= sert ailleurs
+  (répartition, tableau de bord), pas à cette page.
 end note
 
 @enduml

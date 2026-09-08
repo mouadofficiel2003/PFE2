@@ -1,191 +1,226 @@
 @startuml diagramme-classe-general
+!theme plain
 skinparam classAttributeIconSize 0
 skinparam shadowing false
 skinparam roundcorner 8
 skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 45
+skinparam dpi 96
+hide empty methods
+hide circle
 
-title Diagramme de classes général — Gestion des concours, lieux, candidats et convocations
+<style>
+title {
+  FontSize 22
+  FontStyle bold
+}
+legend {
+  FontSize 15
+}
+package {
+  FontSize 16
+  FontStyle bold
+}
+class {
+  FontSize 16
+  Header {
+    FontSize 17
+    FontStyle bold
+  }
+}
+entity {
+  FontSize 16
+}
+enum {
+  FontSize 15
+}
+note {
+  FontSize 14
+}
+arrow {
+  FontSize 14
+  LineThickness 1.2
+}
+</style>
 
-package "Accès et rôles" #F8F8F8 {
+title Dématérialisation des candidatures — Diagramme de classes général
+
+legend bottom
+  Losange plein = composition  ·  Flèche pointillée = référence par identifiant
+  <<assemblé>> = calculé à la lecture, non persisté
+  Noms uniques : centre (global) ; établissement **dans** le centre ; salle **dans** l'établissement
+endlegend
+
+package "Authentification" #F8F8F8 {
   enum RoleUtilisateur <<enumeration>> {
     ADMINISTRATEUR
     GESTIONNAIRE
   }
-
   class Utilisateur {
-    - id : Long
-    --
-    + nomUtilisateur : String
-    + passwordHash : String
+    - id : Long <<PK>>
+    + nomUtilisateur : String {unique}
     + role : RoleUtilisateur
     + actif : boolean
-    + creeLe : Instant
-  }
-
-  class Gestionnaire {
     --
-    + importerCandidats(fichierExcel) : void
-    + demarrerRepartitionAutomatique() : void
-    + genererConvocations() : void
-    + envoyerConvocations() : void
+    + sAuthentifier()
+    + creer()
+    + modifier()
+    + supprimer()
+    + consulter()
   }
-
   Utilisateur --> RoleUtilisateur
-  Utilisateur <|-- Gestionnaire : profile >
-  note right of Gestionnaire
-    Les actions métier (import Excel,
-    répartition, convocations) sont
-    initiées par le gestionnaire ;
-    le système exécute les traitements.
-  end note
 }
 
 package "Concours" #F4FAFF {
   class Concours {
-    - id : Long
-    --
+    - numeroConcours : String <<PK>>
     + nomConcours : String
-    + numeroConcours : String
-    + dateConcours : LocalDate
-    ..
-    **Centres :** collection reliée par association
-    « affecté aux centres » — villes / pôles
-    où ce concours est organisé.
+    + dateHeureExamen : Instant
+    --
+    + consulter()
+    + creer()
+    + modifier()
+    + supprimer()
   }
+  class ConcoursAffectationCentre {
+    + idCentre : Long
+    + nomCentre : String
+  }
+  Concours "1" *-- "1..*" ConcoursAffectationCentre
 }
 
 package "Lieux d'examen" #FFF8F0 {
   class Centre {
-    - id : Long
+    - idCentre : Long <<PK>>
+    + nomCentre : String {unique}
     --
-    + nomCentre : String
-    ..
-    Ex. centre Rabat, centre Casablanca
-    (ville / pôle où se déroule le concours).
+    + consulter()
+    + creer()
+    + modifier()
+    + supprimer()
   }
-
   class Etablissement {
-    - id : Long
-    --
+    - idEtablissement : Long <<PK>>
     + nomEtablissement : String
-  }
-
-  class Salle {
-    - id : Long
     --
-    + nomSalle : String
-    + capacite : int
+    + consulter()
+    + creer()
+    + modifier()
+    + supprimer()
   }
-
-  Centre "1" *-- "1..*" Etablissement : regroupe >
-  Etablissement "1" *-- "1..*" Salle : contient >
-
-  Concours "1..*" -- "1..*" Centre : affecté aux centres >
-  Concours "1..*" -- "1..*" Etablissement : organisé dans >
-  Concours "1" o-- "1..*" Salle : se déroule dans >
-  note bottom of Salle
-    Une salle accueille **un seul** concours
-    (pour la session considérée).
-    Plusieurs salles peuvent être dédiées
-    au même concours.
-  end note
+  class Salle {
+    - idSalle : Long <<PK>>
+    + nomSalle : String
+    + nombrePlaces : int
+    + numeroConcours : String
+    --
+    + consulter()
+    + creer()
+    + modifier()
+    + supprimer()
+  }
+  Centre "1" *-- "0..*" Etablissement
+  Etablissement "1" *-- "0..*" Salle
 }
 
-package "Candidatures" #F6FFF4 {
+package "Candidats" #F6FFF4 {
   class Candidat {
-    - id : Long
-    --
+    - numeroInscription : String <<PK>>
     + nom : String
     + prenom : String
+    + cin : String {unique}
     + ville : String
-    + nomDuConcours : String
-    + cin : String
-    + telephone : String
     + email : String
-    + numeroInscription : String
-    + numeroOuNomSpecialite : String
-    ..
-    **nomDuConcours :** issu du fichier Excel /
-    utilisé pour rapprocher le bon concours
-    et le centre (ville candidat ↔ centre).
+    + numeroConcours : String
+    + idCentre : Long
+    + idEtablissement : Long
+    + idSalle : Long
+    + numeroPlace : Integer
+    --
+    + importer()
+    + consulter()
+    + modifier()
+    + supprimer()
+    + reinitialiserListe()
+    + affecterManuellement()
   }
-
-  Candidat "1..*" --> "1" Concours : passe >
 }
 
 package "Répartition" #FAF4FF {
-  enum ModeRepartition <<enumeration>> {
-    AUTOMATIQUE
-    MANUELLE
+  enum RepartitionStatut <<enumeration>> {
+    TERMINEE
+    TERMINEE_AVEC_ALERTES
+    ECHEC
   }
-
-  class Affectation {
-    - id : Long
+  enum AlerteType <<enumeration>> {
+    CAPACITE_DEPASSEE
+    AUCUN_CENTRE_DISPONIBLE
+    CONCOURS_INCONNU
+    VILLE_NON_GEOLOCALISEE
+  }
+  class RepartitionRun {
+    - id : Long <<PK>>
+    + statut : RepartitionStatut
+    + totalCandidats : int
+    + totalAffectes : int
+    + totalAlertes : int
     --
-    + mode : ModeRepartition
-    + numeroPlaceDansSalle : int
-    + dateAffectation : Instant
+    + lancer()
+    + consulter()
+    + reinitialiserAffectations()
+    + supprimer()
   }
-
-  Affectation --> ModeRepartition
-  Candidat "1" -- "0..1" Affectation : obtient >
-  Salle "1" -- "0..*" Affectation : accueille >
-  note bottom of Affectation
-    Après répartition : au plus une affectation
-    par candidat — **un seul centre, un seul
-    établissement, une seule salle**, cohérents
-    avec la composition Centre → Établissement → Salle.
-  end note
+  class RepartitionAffectation {
+    + numeroInscription : String
+    + numeroPlace : Integer
+  }
+  class RepartitionAlerte {
+    + type : AlerteType
+    + numeroInscription : String
+  }
+  RepartitionRun --> RepartitionStatut
+  RepartitionRun "1" *-- "0..*" RepartitionAffectation
+  RepartitionRun "1" *-- "0..*" RepartitionAlerte
+  RepartitionAlerte --> AlerteType
 }
 
 package "Convocations" #FFF4F4 {
-  class Convocation {
-    - id : Long
-    --
-    + nom : String
-    + prenom : String
-    + libelleCentre : String
-    + libelleEtablissement : String
-    + libelleSalle : String
-    + dateConvocation : LocalDate
-    + numeroPlace : int
+  class Convocation <<assemblé>> {
     + numeroInscription : String
-    + numeroConcours : String
-    + pdfGenere : boolean
-    + emailEnvoye : boolean
-  }
-
-  Candidat "1" -- "0..1" Convocation : reçoit >
-  note right of Convocation
-    Règle métier : **au plus une convocation**
-    par candidat une fois le circuit terminé.
-  end note
-
-  Convocation "0..*" --> "1" Concours : mentionne >
-  Convocation "0..*" --> "1" Centre : mentionne >
-  Convocation "0..*" --> "1" Etablissement : mentionne >
-  Convocation "0..*" --> "1" Salle : mentionne >
-  Convocation ..> Affectation : synthétise >
-}
-
-package "Traçabilité import" #EEEEEE {
-  class ImportCandidats {
-    - id : Long
+    + nomCentre : String
+    + nomSalle : String
+    + dateHeureExamen : Instant
+    + numeroPlace : Integer
     --
-    + dateImport : Instant
-    + nomFichierSource : String
+    + consulter()
+    + telechargerPdf()
+    + envoyerToutes()
   }
-
-  ImportCandidats ..> Candidat : crée ou met à jour >
-  Gestionnaire "1" -- "0..*" ImportCandidats : déclenche >
+  class ConvocationEnvoi {
+    - id : Long <<PK>>
+    + numeroInscription : String
+    + statut : EnvoiStatut
+    + envoyeLe : Instant
+    --
+    + consulter()
+    + reinitialiser()
+  }
+  enum EnvoiStatut <<enumeration>> {
+    ENVOYE
+    ECHEC
+  }
+  ConvocationEnvoi --> EnvoiStatut
 }
 
-' --- Relations « gestion » (n — n) entre Gestionnaire et entités métier ---
-Gestionnaire "1..*" --- "0..*" Candidat : gère >
-Gestionnaire "1..*" --- "0..*" Concours : gère >
-Gestionnaire "1..*" --- "0..*" Centre : gère >
-Gestionnaire "1..*" --- "0..*" Etablissement : gère >
-Gestionnaire "1..*" --- "0..*" Salle : gère >
-Gestionnaire "1..*" --- "0..*" Convocation : gère >
+ConcoursAffectationCentre "0..*" ..> "1" Centre
+Salle "0..*" ..> "0..1" Concours
+Candidat "0..*" ..> "0..1" Concours
+Candidat "0..*" ..> "0..1" Salle
+RepartitionAffectation "0..*" ..> "1" Candidat
+RepartitionAlerte "0..*" ..> "0..1" Candidat
+Candidat "1" ..> "0..1" Convocation
+ConvocationEnvoi "0..*" ..> "1" Candidat
 
 @enduml

@@ -1,0 +1,80 @@
+@startuml diagramme-sequence-repartition-automatique-3
+!theme plain
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam dpi 150
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+<style>
+title {
+  FontSize 26
+  FontStyle bold
+}
+document {
+  FontSize 22
+}
+sequenceDiagram {
+  actor {
+    FontSize 22
+  }
+  participant {
+    FontSize 20
+  }
+  database {
+    FontSize 20
+  }
+  arrow {
+    FontSize 20
+    LineThickness 1.5
+  }
+  divider {
+    FontSize 20
+  }
+  group {
+    FontSize 18
+  }
+  note {
+    FontSize 18
+  }
+  lifeLine {
+    LineThickness 1.5
+  }
+}
+</style>
+
+title Dématérialisation des candidatures — Répartition automatique (3/3)\nCalcul du plan et écriture
+
+actor "Gestionnaire" as Gest
+participant "Application Web\n(React)" as React
+participant "Passerelle API" as GW
+participant "Service Répartition\n(Spring Boot)" as Rep
+participant "Service Candidats\n(Spring Boot)" as Cand
+database "PostgreSQL" as DB
+
+== Calcul du plan (en mémoire) ==
+loop Pour chaque candidat\n(trié par numéro d'inscription)
+  Rep -> Rep : Classer les centres du concours\npar proximité\n(même ville, même région, distance)
+  alt Une salle a encore de la place
+    Rep -> Rep : Réserver une place\n(centre, établissement, salle, place)
+  else Impossible d'affecter
+    Rep -> Rep : Alerte (capacité, aucun centre,\nconcours inconnu, ville inconnue)
+  end
+end
+
+== Écriture des affectations et de l'historique ==
+Rep -> Cand : PATCH /api/candidats/affectations
+Cand --> Rep : 200 OK
+Rep -> DB : INSERT run, affectations, alertes
+DB --> Rep : OK
+Rep --> GW : 201 Created { synthèse }
+GW --> React : 201 Created
+React --> Gest : Affiche le résultat\n(affectés, alertes)
+
+note over React, Rep
+  Redistribution complète :
+  les candidats non placés voient
+  leur affectation remise à zéro.
+end note
+
+@enduml

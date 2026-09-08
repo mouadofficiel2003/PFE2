@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="170mm" height="95mm" viewBox="0 0 1200 670">
+  <rect width="1200" height="670" fill="#ffffff"/>
+  <text x="600" y="40" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="26" font-weight="bold" fill="#2c2c2c">Diagramme de Gantt du projet</text>
+  <text x="600" y="68" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="14" fill="#666666">Stage du 6 mars au 6 juillet 2026</text>
+
+  <!-- Chart: x=300..1160 (w=860), y=110..620 -->
+  <line x1="300" y1="108" x2="1160" y2="108" stroke="#5a5a5a" stroke-width="1.5"/>
+  <line x1="300" y1="620" x2="1160" y2="620" stroke="#5a5a5a" stroke-width="1.5"/>
+  <line x1="300" y1="108" x2="300" y2="620" stroke="#5a5a5a" stroke-width="1.5"/>
+  <line x1="1160" y1="108" x2="1160" y2="620" stroke="#5a5a5a" stroke-width="1.5"/>
+
+  <!-- Month grid: 122 days, x = 300 + 860 * d/122 -->
+  <line x1="483.3" y1="108" x2="483.3" y2="620" stroke="#dcdcdc" stroke-width="1"/>
+  <line x1="694.8" y1="108" x2="694.8" y2="620" stroke="#dcdcdc" stroke-width="1"/>
+  <line x1="913.3" y1="108" x2="913.3" y2="620" stroke="#dcdcdc" stroke-width="1"/>
+  <line x1="1124.8" y1="108" x2="1124.8" y2="620" stroke="#dcdcdc" stroke-width="1"/>
+
+  <text x="391.6" y="98" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="14" font-weight="bold" fill="#2c2c2c">Mars</text>
+  <text x="589.0" y="98" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="14" font-weight="bold" fill="#2c2c2c">Avril</text>
+  <text x="804.0" y="98" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="14" font-weight="bold" fill="#2c2c2c">Mai</text>
+  <text x="1019.0" y="98" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="14" font-weight="bold" fill="#2c2c2c">Juin</text>
+  <text x="1142.4" y="98" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="13" font-weight="bold" fill="#2c2c2c">Juil.</text>
+
+  <text x="16" y="175" font-family="Calibri, Arial, sans-serif" font-size="16" font-weight="bold" fill="#2c2c2c">Cahier des charges</text>
+  <text x="16" y="196" font-family="Calibri, Arial, sans-serif" font-size="12" fill="#777777">6 mars – 19 mars</text>
+
+  <text x="16" y="302" font-family="Calibri, Arial, sans-serif" font-size="16" font-weight="bold" fill="#2c2c2c">Conception UML</text>
+  <text x="16" y="323" font-family="Calibri, Arial, sans-serif" font-size="12" fill="#777777">20 mars – 19 avril</text>
+
+  <text x="16" y="429" font-family="Calibri, Arial, sans-serif" font-size="16" font-weight="bold" fill="#2c2c2c">Réalisation</text>
+  <text x="16" y="450" font-family="Calibri, Arial, sans-serif" font-size="12" fill="#777777">20 avril – 14 juin</text>
+
+  <text x="16" y="556" font-family="Calibri, Arial, sans-serif" font-size="16" font-weight="bold" fill="#2c2c2c">Tests</text>
+  <text x="16" y="577" font-family="Calibri, Arial, sans-serif" font-size="12" fill="#777777">15 juin – 6 juillet</text>
+
+  <!-- Bars: 14, 31, 56, 21 days -->
+  <rect x="300.0" y="155" width="98.7" height="55" rx="5" fill="#C4A574" stroke="#5a5a5a" stroke-width="0.8"/>
+  <rect x="398.7" y="282" width="218.5" height="55" rx="5" fill="#5B9BD5" stroke="#5a5a5a" stroke-width="0.8"/>
+  <rect x="617.2" y="409" width="394.8" height="55" rx="5" fill="#70AD47" stroke="#5a5a5a" stroke-width="0.8"/>
+  <rect x="1012.0" y="536" width="148.0" height="55" rx="5" fill="#ED7D31" stroke="#5a5a5a" stroke-width="0.8"/>
+</svg>
