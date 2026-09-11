@@ -2,43 +2,51 @@
 !theme plain
 skinparam shadowing false
 skinparam roundcorner 8
-skinparam dpi 96
+skinparam dpi 180
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 
 <style>
 title {
-  FontSize 26
+  FontSize 32
   FontStyle bold
+  Margin 8
 }
 document {
-  FontSize 22
+  FontSize 26
 }
 sequenceDiagram {
   actor {
-    FontSize 22
+    FontSize 26
+    FontStyle bold
+    Padding 10
   }
   participant {
-    FontSize 20
+    FontSize 24
+    FontStyle bold
+    Padding 10
   }
   database {
-    FontSize 20
+    FontSize 24
+    FontStyle bold
+    Padding 10
   }
   arrow {
-    FontSize 20
-    LineThickness 1.5
+    FontSize 24
+    LineThickness 2
   }
   divider {
-    FontSize 20
+    FontSize 24
+    FontStyle bold
   }
   group {
-    FontSize 18
+    FontSize 22
   }
   note {
-    FontSize 18
+    FontSize 20
   }
   lifeLine {
-    LineThickness 1.5
+    LineThickness 2
   }
 }
 </style>

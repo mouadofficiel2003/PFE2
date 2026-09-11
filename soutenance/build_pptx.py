@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from shutil import copy2
 
 from pptx import Presentation
 from pptx.dml.color import RGBColor
@@ -33,10 +34,18 @@ WHITE = RGBColor(255, 255, 255)
 CREAM = RGBColor(248, 250, 252)
 SOFT_RED = RGBColor(153, 27, 27)
 BLACK = RGBColor(0, 0, 0)
+LIGHT_TEAL = RGBColor(153, 221, 214)
 
 SLIDE_W = Inches(13.333)
 SLIDE_H = Inches(7.5)
-TOTAL_PAGES = 29  # parties 1 à 7
+TOTAL_PAGES = 29
+
+K1 = "Partie 1  ·  Contexte et problématique"
+K2 = "Partie 2  ·  Objectifs et démarche"
+K3 = "Partie 3  ·  Analyse et conception"
+K4 = "Partie 4  ·  Architecture technique"
+K5 = "Partie 5  ·  Réalisation"
+K6 = "Partie 6  ·  Bilan et perspectives"
 
 
 def _set_run(run, *, size_pt, bold=False, color=INK, font="Calibri", italic=False):
@@ -109,14 +118,26 @@ def add_bullets(slide, left, top, width, height, items, *, size=16, color=INK, s
     return box
 
 
+EMU_PER_INCH = 914400.0
+
+
+def _to_inches(val):
+    """Accepte Inches(), un float en pouces, ou un int EMU issu d'une addition Length."""
+    if hasattr(val, "inches"):
+        return float(val.inches)
+    if isinstance(val, int) and abs(val) > 100:
+        return val / EMU_PER_INCH
+    return float(val)
+
+
 def add_picture_fit(slide, path, left, top, max_w, max_h):
     """Insère une image centrée dans un rectangle, sans déformer."""
     im = Image.open(path)
     pw, ph = im.size
-    max_w_in = max_w.inches if hasattr(max_w, "inches") else max_w
-    max_h_in = max_h.inches if hasattr(max_h, "inches") else max_h
-    left_in = left.inches if hasattr(left, "inches") else left
-    top_in = top.inches if hasattr(top, "inches") else top
+    max_w_in = _to_inches(max_w)
+    max_h_in = _to_inches(max_h)
+    left_in = _to_inches(left)
+    top_in = _to_inches(top)
     ratio = pw / ph
     box_ratio = max_w_in / max_h_in
     if ratio > box_ratio:
@@ -167,43 +188,33 @@ def add_accent_bar(slide):
     _fill(teal, TEAL)
 
 
+def _mef_width(height):
+    """Largeur du logo MEF (RGB, fond blanc) pour une hauteur donnée."""
+    h_in = _to_inches(height)
+    with Image.open(LOGO_MEF) as im:
+        pw, ph = im.size
+    return Inches(h_in * (pw / ph))
+
+
 def add_header_logos(slide, small=True):
     if small:
         slide.shapes.add_picture(str(LOGO_EMSI), Inches(0.42), Inches(0.18), height=Inches(0.42))
-        mef_h = Inches(0.50)
-        mef_w = int(mef_h * (1024 / 417))
-        plate = slide.shapes.add_shape(
-            MSO_SHAPE.ROUNDED_RECTANGLE,
-            Inches(13.333) - Inches(0.38) - mef_w - Inches(0.04),
-            Inches(0.12),
-            mef_w + Inches(0.08),
-            mef_h + Inches(0.08),
-        )
-        _fill(plate, BLACK)
-        plate.adjustments[0] = 0.08
+        mef_h = Inches(0.52)
+        mef_w = _mef_width(mef_h)
         slide.shapes.add_picture(
             str(LOGO_MEF),
-            Inches(13.333) - Inches(0.34) - mef_w,
-            Inches(0.16),
+            Inches(13.333) - Inches(0.38) - mef_w,
+            Inches(0.14),
             height=mef_h,
         )
     else:
         slide.shapes.add_picture(str(LOGO_EMSI), Inches(0.45), Inches(0.32), height=Inches(0.58))
         mef_h = Inches(0.78)
-        mef_w = int(mef_h * (1024 / 417))
-        plate = slide.shapes.add_shape(
-            MSO_SHAPE.ROUNDED_RECTANGLE,
-            Inches(13.333) - Inches(0.42) - mef_w - Inches(0.06),
-            Inches(0.18),
-            mef_w + Inches(0.12),
-            mef_h + Inches(0.12),
-        )
-        _fill(plate, BLACK)
-        plate.adjustments[0] = 0.08
+        mef_w = _mef_width(mef_h)
         slide.shapes.add_picture(
             str(LOGO_MEF),
-            Inches(13.333) - Inches(0.36) - mef_w,
-            Inches(0.24),
+            Inches(13.333) - Inches(0.42) - mef_w,
+            Inches(0.22),
             height=mef_h,
         )
 
@@ -257,18 +268,20 @@ def add_cover(prs):
     )
 
     add_textbox(
-        slide, Inches(0.7), Inches(2.62), Inches(12), Inches(0.30),
+        slide, Inches(0.7), Inches(2.58), Inches(12), Inches(0.28),
         "Spécialité Ingénierie Informatique et Réseaux  ·  Option MIAGE",
         size=14, color=MUTED, align=PP_ALIGN.CENTER,
     )
     add_textbox(
-        slide, Inches(0.8), Inches(3.02), Inches(11.7), Inches(0.90),
-        "Dématérialisation de la gestion des candidatures",
-        size=30, bold=True, color=NAVY, align=PP_ALIGN.CENTER,
+        slide, Inches(0.7), Inches(2.90), Inches(11.9), Inches(1.00),
+        "Conception et développement d'une application pour\n"
+        "l'automatisation de la gestion des concours de recrutement",
+        size=22, bold=True, color=NAVY, align=PP_ALIGN.CENTER,
     )
     add_textbox(
-        slide, Inches(1.4), Inches(3.92), Inches(10.5), Inches(0.65),
-        "Développement d'une application web pour l'organisation des concours :\nimport des candidats, répartition automatique et convocations",
+        slide, Inches(1.2), Inches(3.92), Inches(10.9), Inches(0.62),
+        "Dématérialisation de la gestion des candidatures :\n"
+        "import Excel, répartition automatique et convocations",
         size=15, color=INK, align=PP_ALIGN.CENTER,
     )
 
@@ -308,9 +321,10 @@ def add_cover(prs):
         "Bonjour. Je m'appelle Mouad Ettahiri. Je vous présente mon projet de fin d'études, "
         "soutenu le 14 septembre 2026, réalisé à l'EMSI Rabat, option MIAGE, au Ministère de "
         "l'Économie et des Finances, Direction des Affaires administratives et générales. "
-        "Le thème est la dématérialisation de la gestion des candidatures aux concours : "
-        "une application web pour importer les candidats, les répartir automatiquement dans "
-        "les salles, puis générer et envoyer les convocations.\n"
+        "Le titre officiel : conception et développement d'une application pour "
+        "l'automatisation de la gestion des concours de recrutement. "
+        "Concrètement : une application web pour importer les candidats, les répartir "
+        "automatiquement dans les salles, puis générer et envoyer les convocations.\n"
         "Encadrement : Pr. Imane Hilal (école) et M. Tarik Lakhbizi (stage).",
     )
 
@@ -332,7 +346,7 @@ def add_plan(prs, total_pages):
     parts = [
         ("01", "5 min", "Contexte et problématique", "MEF, constat manuel, question de recherche"),
         ("02", "4 min", "Objectifs et démarche", "Objectifs, cycle en cascade, diagramme de Gantt"),
-        ("03", "6 min", "Analyse et conception", "Acteurs, besoins, cas d'utilisation, classes"),
+        ("03", "6 min", "Analyse et conception", "Acteurs, périmètre, cas d'utilisation, classes"),
         ("04", "5 min", "Architecture technique", "Gateway, 6 microservices, JWT, PostgreSQL"),
         ("05", "8 min", "Réalisation", "Import Excel, répartition, convocations, tableau de bord"),
         ("06", "2 min", "Bilan et perspectives", "Apports, limites, évolutions, conclusion"),
@@ -383,7 +397,7 @@ def add_organisme(prs, page, total):
     slide = new_content_slide(
         prs,
         "L'organisme d'accueil",
-        kicker="Partie 2  ·  Contexte et problématique",
+        kicker=K1,
         page=page,
         total=total,
     )
@@ -405,7 +419,7 @@ def add_organisme(prs, page, total):
             "Loi de finances, recettes, dépenses, contrôle des finances publiques.",
             "Plus de 17 000 agents dans les directions à réseau, plus de 2 000 en administration centrale.",
             "Modernisation : digitalisation des métiers et gestion du capital humain.",
-            "C'est dans ce cadre que s'inscrit le stage.",
+            "Le stage se déroule à la DAAG, sur l'organisation des concours de recrutement.",
         ],
         size=16,
         space_after=9,
@@ -414,9 +428,10 @@ def add_organisme(prs, page, total):
     plate = slide.shapes.add_shape(
         MSO_SHAPE.ROUNDED_RECTANGLE, Inches(8.25), Inches(1.55), Inches(4.55), Inches(2.05)
     )
-    _fill(plate, BLACK)
+    _fill(plate, WHITE)
+    _line(plate, LINE, 0.75)
     plate.adjustments[0] = 0.06
-    slide.shapes.add_picture(str(LOGO_MEF), Inches(8.40), Inches(1.68), width=Inches(4.25))
+    add_picture_fit(slide, LOGO_MEF, Inches(8.40), Inches(1.62), Inches(4.25), Inches(1.90))
 
     missions = [
         ("Budget et fiscalité", "Loi de finances, recettes et dépenses"),
@@ -448,7 +463,7 @@ def add_daag(prs, page, total):
     slide = new_content_slide(
         prs,
         "La direction d'accueil : la DAAG",
-        kicker="Partie 2  ·  Contexte et problématique",
+        kicker=K1,
         page=page,
         total=total,
     )
@@ -486,7 +501,7 @@ def add_daag(prs, page, total):
     add_textbox(
         slide, Inches(0.75), Inches(5.00), Inches(11.85), Inches(0.40),
         "Pourquoi la DAAG est le cadre naturel du projet",
-        size=16, bold=True, color=TEAL,
+        size=16, bold=True, color=LIGHT_TEAL,
     )
     add_textbox(
         slide, Inches(0.75), Inches(5.42), Inches(11.85), Inches(1.25),
@@ -510,7 +525,7 @@ def add_constat(prs, page, total):
     slide = new_content_slide(
         prs,
         "Le constat : un processus encore manuel",
-        kicker="Partie 2  ·  Contexte et problématique",
+        kicker=K1,
         page=page,
         total=total,
     )
@@ -554,7 +569,7 @@ def add_problematique(prs, page, total):
     slide = new_content_slide(
         prs,
         "Problématique",
-        kicker="Partie 2  ·  Contexte et problématique",
+        kicker=K1,
         page=page,
         total=total,
     )
@@ -609,7 +624,7 @@ def add_objectifs(prs, page, total):
     slide = new_content_slide(
         prs,
         "Objectifs du projet",
-        kicker="Partie 3  ·  Objectifs et démarche",
+        kicker=K2,
         page=page,
         total=total,
     )
@@ -621,7 +636,7 @@ def add_objectifs(prs, page, total):
     banner.adjustments[0] = 0.06
     add_textbox(
         slide, Inches(0.72), Inches(1.58), Inches(11.90), Inches(0.28),
-        "Objectif général", size=12, bold=True, color=TEAL,
+        "Objectif général", size=12, bold=True, color=LIGHT_TEAL,
     )
     add_textbox(
         slide, Inches(0.72), Inches(1.88), Inches(11.90), Inches(0.58),
@@ -635,18 +650,18 @@ def add_objectifs(prs, page, total):
         ("02", "Candidats", "Import Excel, consultation, mise à jour, suppression, affectation manuelle."),
         ("03", "Répartition", "Affectation selon le concours, la capacité et la proximité (ville / région)."),
         ("04", "Convocations", "PDF (identité, lieu, place, date) et envoi groupé par e-mail."),
-        ("05", "Pilotage", "Tableau de bord : effectifs, remplissage, dernière run, historique."),
+        ("05", "Pilotage", "Tableau de bord : effectifs, remplissage, dernière exécution, historique."),
         ("06", "Sécurité", "Rôles administrateur (lecture + comptes) et gestionnaire (pilotage)."),
         ("07", "Architecture", "Six microservices pour isoler les responsabilités et faciliter la maintenance."),
     ]
     for i, (num, titre, detail) in enumerate(goals):
         col, row = i % 4, i // 4
-        if row == 1:
-            x = Inches(0.48 + col * 4.20)
-            w = 3.95
+        w = 3.02
+        gap = 3.18
+        if row == 0:
+            x = Inches(0.48 + col * gap)
         else:
-            x = Inches(0.48 + col * 3.18)
-            w = 3.02
+            x = Inches(0.48 + gap / 2 + col * gap)
         y = Inches(2.80 + row * 2.12)
         card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, Inches(w), Inches(1.95))
         _fill(card, CREAM)
@@ -677,7 +692,7 @@ def add_methodo(prs, page, total):
     slide = new_content_slide(
         prs,
         "Démarche : un cycle en cascade",
-        kicker="Partie 3  ·  Objectifs et démarche",
+        kicker=K2,
         page=page,
         total=total,
     )
@@ -725,11 +740,11 @@ def add_methodo(prs, page, total):
     roles.adjustments[0] = 0.06
     add_textbox(
         slide, Inches(0.72), Inches(5.58), Inches(12.0), Inches(0.32),
-        "Répartition des rôles", size=14, bold=True, color=TEAL,
+        "Répartition des rôles", size=14, bold=True, color=LIGHT_TEAL,
     )
     add_textbox(
         slide, Inches(0.72), Inches(5.92), Inches(12.0), Inches(0.80),
-        "Moi : analyse, UML, backend, interfaces, répartition, convocations et tests.   ·   "
+        "Étudiant : analyse, UML, backend, interfaces, répartition, convocations et tests.   ·   "
         "Encadrant : définition du besoin, validation de chaque étape, pilotage.   ·   "
         "Pas de sprints courts : une porte qualité à la fin de chaque phase.",
         size=15, color=WHITE,
@@ -749,26 +764,26 @@ def add_methodo(prs, page, total):
 def add_gantt(prs, page, total):
     slide = new_content_slide(
         prs,
-        "Planification : trois mois de stage",
-        kicker="Partie 3  ·  Objectifs et démarche",
+        "Planification : cinq mois et demi de stage",
+        kicker=K2,
         page=page,
         total=total,
     )
     add_textbox(
         slide, Inches(0.5), Inches(1.40), Inches(12.3), Inches(0.32),
-        "Du 6 mars au 6 juin 2026  ·  enchaînement séquentiel validé avec l'encadrant",
+        "Du 6 mars au 17 août 2026  ·  enchaînement séquentiel validé avec l'encadrant",
         size=15, color=MUTED,
     )
     if IMG_GANTT.exists():
-        slide.shapes.add_picture(str(IMG_GANTT), Inches(0.95), Inches(1.82), width=Inches(11.40))
+        add_picture_fit(slide, IMG_GANTT, Inches(0.48), Inches(1.76), Inches(12.35), Inches(5.30))
     add_notes(
         slide,
         "Durée : ~1 min 20 s.\n"
-        "Le stage dure trois mois. Deux semaines de cahier des charges (6–19 mars), "
-        "un mois de conception UML (20 mars – 19 avril) : rien n'est codé tant que les diagrammes "
-        "ne sont pas validés. Puis cinq semaines de réalisation (20 avril – 24 mai) : authentification, "
+        "Le stage dure cinq mois et demi. Deux semaines de cahier des charges (6–19 mars), "
+        "un mois et une semaine de conception UML (20 mars – 26 avril) : rien n'est codé tant que les diagrammes "
+        "ne sont pas validés. Puis trois mois de réalisation (27 avril – 26 juillet) : authentification, "
         "concours et lieux, import, répartition, convocations, tableau de bord. "
-        "Enfin deux semaines de tests et corrections (25 mai – 6 juin). "
+        "Enfin trois semaines de tests et corrections (27 juillet – 17 août). "
         "C'est volontairement linéaire : on ne commence pas le code pendant la conception.",
     )
 
@@ -777,7 +792,7 @@ def add_acteurs(prs, page, total):
     slide = new_content_slide(
         prs,
         "Les acteurs du système",
-        kicker="Partie 4  ·  Analyse et conception",
+        kicker=K3,
         page=page,
         total=total,
     )
@@ -826,8 +841,8 @@ def add_acteurs(prs, page, total):
 def add_perimetre(prs, page, total):
     slide = new_content_slide(
         prs,
-        "Périmètre : ce qui est dans le système, et ce qui n'y est pas",
-        kicker="Partie 4  ·  Analyse et conception",
+        "Périmètre du système",
+        kicker=K3,
         page=page,
         total=total,
     )
@@ -849,7 +864,7 @@ def add_perimetre(prs, page, total):
             "Authentification et comptes gestionnaires",
             "CRUD concours, centres, établissements, salles",
             "Import Excel, modification, suppression des candidats",
-            "Répartition automatique, historique, reset, export",
+            "Répartition automatique, historique, réinitialisation, export",
             "PDF de convocation, envoi groupé, historique",
             "Tableau de bord et identité visuelle MEF",
         ],
@@ -897,7 +912,7 @@ def add_processus(prs, page, total):
     slide = new_content_slide(
         prs,
         "Le processus métier cible",
-        kicker="Partie 4  ·  Analyse et conception",
+        kicker=K3,
         page=page,
         total=total,
     )
@@ -944,7 +959,7 @@ def add_usecase(prs, page, total):
     slide = new_content_slide(
         prs,
         "Diagramme de cas d'utilisation général",
-        kicker="Partie 4  ·  Analyse et conception",
+        kicker=K3,
         page=page,
         total=total,
     )
@@ -985,7 +1000,7 @@ def add_classes(prs, page, total):
     slide = new_content_slide(
         prs,
         "Diagramme de classes général",
-        kicker="Partie 4  ·  Analyse et conception",
+        kicker=K3,
         page=page,
         total=total,
     )
@@ -997,9 +1012,9 @@ def add_classes(prs, page, total):
     cap.adjustments[0] = 0.08
     add_textbox(
         slide, Inches(0.70), Inches(6.32), Inches(12.0), Inches(0.68),
-        "Losange plein = composition dans un même service.   Flèche en pointillés = référence logique "
-        "entre bases (id_centre, numero_concours…).   Convocation est « assemblée » : elle n'est pas stockée, "
-        "elle est recalculée à la lecture.",
+        "Six paquets, un par microservice. Les pointillés sont des identifiants logiques "
+        "(id_centre, numero_concours), pas des clés étrangères. La convocation n'est pas stockée : "
+        "elle est assemblée à la lecture.",
         size=13, color=WHITE,
     )
     add_notes(
@@ -1020,7 +1035,7 @@ def add_archi_vue(prs, page, total):
     slide = new_content_slide(
         prs,
         "Architecture : une passerelle, six services, six bases",
-        kicker="Partie 5  ·  Architecture technique",
+        kicker=K4,
         page=page,
         total=total,
     )
@@ -1093,7 +1108,7 @@ def add_archi_services(prs, page, total):
     slide = new_content_slide(
         prs,
         "Responsabilités des six microservices",
-        kicker="Partie 5  ·  Architecture technique",
+        kicker=K4,
         page=page,
         total=total,
     )
@@ -1138,7 +1153,7 @@ def add_archi_jwt(prs, page, total):
     slide = new_content_slide(
         prs,
         "Sécurité : JWT décentralisé et rôles",
-        kicker="Partie 5  ·  Architecture technique",
+        kicker=K4,
         page=page,
         total=total,
     )
@@ -1168,7 +1183,7 @@ def add_archi_jwt(prs, page, total):
     add_textbox(slide, Inches(7.90), Inches(1.58), Inches(4.75), Inches(0.38), "Rôles", size=16, bold=True, color=NAVY)
     add_textbox(
         slide, Inches(7.90), Inches(2.05), Inches(4.75), Inches(2.70),
-        "GESTIONNAIRE\nLecture + écriture métier, run, envoi.\n\n"
+        "GESTIONNAIRE\nLecture et écriture métier, répartition, envoi.\n\n"
         "ADMINISTRATEUR\nLecture métier. Seul à gérer les comptes.\n\n"
         "Pas de jeton de rafraîchissement : un choix simple, une limite assumée.",
         size=14, color=INK,
@@ -1201,7 +1216,7 @@ def add_archi_seq(prs, page, total):
     slide = new_content_slide(
         prs,
         "Scénario clé : la répartition orchestre trois services",
-        kicker="Partie 5  ·  Architecture technique",
+        kicker=K4,
         page=page,
         total=total,
     )
@@ -1244,7 +1259,7 @@ def add_archi_stack(prs, page, total):
     slide = new_content_slide(
         prs,
         "Pile technique",
-        kicker="Partie 5  ·  Architecture technique",
+        kicker=K4,
         page=page,
         total=total,
     )
@@ -1278,7 +1293,9 @@ def add_archi_stack(prs, page, total):
             card.adjustments[0] = 0.10
             logo = ROOT / "rapport" / "images" / fname
             if logo.exists():
-                add_picture_fit(slide, logo, x + Inches(0.35), y + Inches(0.12), Inches(1.30), Inches(1.15))
+                add_picture_fit(slide, logo, x + Inches(0.28), y + Inches(0.10), Inches(1.44), Inches(1.18))
+            else:
+                print(f"Logo manquant : {logo}")
             add_textbox(
                 slide, x + Inches(0.08), y + Inches(1.32), Inches(1.84), Inches(0.68),
                 label, size=11, bold=True, color=NAVY, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
@@ -1300,7 +1317,7 @@ def add_capture_slide(prs, title, subtitle, image_name, notes, page, total):
     slide = new_content_slide(
         prs,
         title,
-        kicker="Partie 6  ·  Réalisation",
+        kicker=K5,
         page=page,
         total=total,
     )
@@ -1417,7 +1434,7 @@ def add_real_pdf_admin(prs, page, total):
     slide = new_content_slide(
         prs,
         "PDF officiel et lecture seule administrateur",
-        kicker="Partie 6  ·  Réalisation",
+        kicker=K5,
         page=page,
         total=total,
     )
@@ -1447,7 +1464,7 @@ def add_bilan(prs, page, total):
     slide = new_content_slide(
         prs,
         "Bilan : ce qui a été livré",
-        kicker="Partie 7  ·  Bilan et perspectives",
+        kicker=K6,
         page=page,
         total=total,
     )
@@ -1455,7 +1472,7 @@ def add_bilan(prs, page, total):
         ("Plateforme intégrée", "Import Excel, lieux, concours, répartition, convocations, tableau de bord."),
         ("Contrôle humain conservé", "Affectation manuelle, aperçu PDF avant envoi, admin en lecture seule."),
         ("Architecture maintenable", "Gateway, 6 microservices, une base par service, JWT."),
-        ("Conçu puis développé", "UML validé avant le code, cascade, stage de 3 mois à la DAAG."),
+        ("Conçu puis développé", "UML validé avant le code, cascade, stage de cinq mois et demi à la DAAG."),
     ]
     for i, (titre, detail) in enumerate(livrables):
         col, row = i % 2, i // 2
@@ -1479,7 +1496,7 @@ def add_bilan(prs, page, total):
     )
     _fill(tests, NAVY)
     tests.adjustments[0] = 0.06
-    add_textbox(slide, Inches(0.72), Inches(5.40), Inches(11.90), Inches(0.32), "Vérifications", size=14, bold=True, color=TEAL)
+    add_textbox(slide, Inches(0.72), Inches(5.40), Inches(11.90), Inches(0.32), "Vérifications", size=14, bold=True, color=LIGHT_TEAL)
     add_textbox(
         slide, Inches(0.72), Inches(5.74), Inches(11.90), Inches(1.05),
         "Backend : 34 tests unitaires (candidat, concours, lieux, répartition).   "
@@ -1502,7 +1519,7 @@ def add_perspectives(prs, page, total):
     slide = new_content_slide(
         prs,
         "Limites assumées et perspectives",
-        kicker="Partie 7  ·  Bilan et perspectives",
+        kicker=K6,
         page=page,
         total=total,
     )
@@ -1521,7 +1538,7 @@ def add_perspectives(prs, page, total):
     add_bullets(
         slide, Inches(0.72), Inches(2.18), Inches(5.65), Inches(4.50),
         [
-            "Jeton d'accès seul : ajouter un refresh token.",
+            "Jeton d'accès seul : ajouter un jeton de rafraîchissement.",
             "Répartition non atomique : un incident peut laisser des affectations partielles.",
             "Envoi via Gmail : passer à une messagerie institutionnelle.",
             "Secret JWT partagé : la rotation impose de redéployer les six services.",
@@ -1559,7 +1576,7 @@ def add_perspectives(prs, page, total):
         "Je nomme les limites avant qu'on me les pose. "
         "Pas de refresh token, répartition non transactionnelle, Gmail au lieu d'une messagerie MEF. "
         "Ensuite les suites naturelles : un petit espace candidat en consultation seulement, "
-        "et un vrai déploiement, qui n'était pas dans les trois mois. "
+        "et un vrai déploiement, qui n'entrait pas dans la durée du stage. "
         "Je ne promets pas l'inscription en ligne : ce n'était pas le besoin.",
     )
 
@@ -1577,7 +1594,7 @@ def add_merci(prs, page, total):
     add_textbox(
         slide, Inches(0.7), Inches(1.85), Inches(12), Inches(0.40),
         "Soutenance PFE  ·  14 septembre 2026",
-        size=16, color=TEAL, align=PP_ALIGN.CENTER,
+        size=16, color=LIGHT_TEAL, align=PP_ALIGN.CENTER,
     )
     add_textbox(
         slide, Inches(0.7), Inches(2.45), Inches(12), Inches(1.10),
@@ -1633,13 +1650,23 @@ def _save(prs):
         OUT_DIR / "Soutenance-PFE-ETTAHIRI-Mouad-v2.pptx",
     ]
     last_error = None
+    saved = None
     for path in candidates:
         try:
             prs.save(str(path))
-            return path
+            saved = path
+            break
         except PermissionError as exc:
             last_error = exc
-    raise last_error
+    if saved is None:
+        raise last_error
+    root_copy = ROOT / "Soutenance-PFE-ETTAHIRI-Mouad.pptx"
+    if saved.resolve() != root_copy.resolve():
+        try:
+            copy2(saved, root_copy)
+        except PermissionError:
+            pass
+    return saved
 
 
 def build():

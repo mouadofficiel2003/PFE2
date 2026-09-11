@@ -4,10 +4,11 @@ skinparam classAttributeIconSize 0
 skinparam shadowing false
 skinparam roundcorner 8
 skinparam packageStyle rectangle
-skinparam linetype ortho
-skinparam nodesep 40
+skinparam linetype polyline
+skinparam nodesep 50
 skinparam ranksep 45
-skinparam dpi 96
+skinparam dpi 140
+skinparam defaultFontName Arial
 hide empty methods
 hide circle
 
@@ -15,49 +16,54 @@ hide circle
 title {
   FontSize 22
   FontStyle bold
-}
-legend {
-  FontSize 15
+  Margin 4
 }
 package {
   FontSize 16
   FontStyle bold
+  Margin 4
+  Padding 8
 }
 class {
-  FontSize 16
+  FontSize 13
+  Padding 5
   Header {
-    FontSize 17
+    FontSize 15
     FontStyle bold
   }
 }
-entity {
-  FontSize 16
-}
 enum {
-  FontSize 15
+  FontSize 13
+  Padding 4
+  Header {
+    FontSize 14
+    FontStyle bold
+  }
 }
-note {
-  FontSize 14
+legend {
+  FontSize 13
 }
 arrow {
-  FontSize 14
-  LineThickness 1.2
+  FontSize 12
+  LineThickness 1.4
 }
 </style>
 
 title Dématérialisation des candidatures — Diagramme de classes général
 
-legend bottom
-  Losange plein = composition  ·  Flèche pointillée = référence par identifiant
-  <<assemblé>> = calculé à la lecture, non persisté
-  Noms uniques : centre (global) ; établissement **dans** le centre ; salle **dans** l'établissement
+legend left
+  **Légende**
+  Losange plein = composition (même agrégat / même base)
+  Flèche pointillée = référence par identifiant (service distinct)
+  <<assemblé>> = calculé à la lecture, **non persisté**
+  **{copie}** = libellé dénormalisé, recopié à l'écriture
+  (l'historique reste lisible si la source est renommée)
+  Unicité des noms : centre **global** ;
+  établissement **dans** le centre ;
+  salle **dans** l'établissement
 endlegend
 
-package "Authentification" #F8F8F8 {
-  enum RoleUtilisateur <<enumeration>> {
-    ADMINISTRATEUR
-    GESTIONNAIRE
-  }
+package "Authentification" as pkgAuth #F8F8F8 {
   class Utilisateur {
     - id : Long <<PK>>
     + nomUtilisateur : String {unique}
@@ -70,28 +76,14 @@ package "Authentification" #F8F8F8 {
     + supprimer()
     + consulter()
   }
+  enum RoleUtilisateur <<enumeration>> {
+    ADMINISTRATEUR
+    GESTIONNAIRE
+  }
   Utilisateur --> RoleUtilisateur
 }
 
-package "Concours" #F4FAFF {
-  class Concours {
-    - numeroConcours : String <<PK>>
-    + nomConcours : String
-    + dateHeureExamen : Instant
-    --
-    + consulter()
-    + creer()
-    + modifier()
-    + supprimer()
-  }
-  class ConcoursAffectationCentre {
-    + idCentre : Long
-    + nomCentre : String
-  }
-  Concours "1" *-- "1..*" ConcoursAffectationCentre
-}
-
-package "Lieux d'examen" #FFF8F0 {
+package "Lieux d'examen" as pkgLieux #FFF8F0 {
   class Centre {
     - idCentre : Long <<PK>>
     + nomCentre : String {unique}
@@ -125,15 +117,41 @@ package "Lieux d'examen" #FFF8F0 {
   Etablissement "1" *-- "0..*" Salle
 }
 
-package "Candidats" #F6FFF4 {
+package "Concours" as pkgConcours #F4FAFF {
+  class Concours {
+    - numeroConcours : String <<PK>>
+    + nomConcours : String
+    + dateHeureExamen : Instant
+    --
+    + consulter()
+    + creer()
+    + modifier()
+    + supprimer()
+  }
+  class ConcoursAffectationCentre {
+    - id : Long <<PK>>
+    + idCentre : Long
+    + nomCentre : String {copie}
+  }
+  Concours "1" *-- "1..*" ConcoursAffectationCentre
+}
+
+package "Candidats" as pkgCandidats #F6FFF4 {
   class Candidat {
     - numeroInscription : String <<PK>>
+    .. identité ..
     + nom : String
     + prenom : String
     + cin : String {unique}
+    + numeroTelephone : String
     + ville : String
+    + age : short
     + email : String
+    + specialite : String
+    .. concours ..
     + numeroConcours : String
+    + nomConcours : String {copie}
+    .. siège (0..1) ..
     + idCentre : Long
     + idEtablissement : Long
     + idSalle : Long
@@ -148,11 +166,59 @@ package "Candidats" #F6FFF4 {
   }
 }
 
-package "Répartition" #FAF4FF {
-  enum RepartitionStatut <<enumeration>> {
-    TERMINEE
-    TERMINEE_AVEC_ALERTES
-    ECHEC
+package "Répartition" as pkgRepart #FAF4FF {
+  class RepartitionRun {
+      - id : Long <<PK>>
+      + declenchePar : String
+      + statut : RepartitionStatut
+      + totalCandidats : int
+      + totalAffectes : int
+      + totalAlertes : int
+      + demarreLe : Instant
+      + termineLe : Instant
+      + message : String
+      --
+      + lancer()
+      + consulter()
+      + reinitialiserAffectations()
+      + supprimer()
+    }
+    enum RepartitionStatut <<enumeration>> {
+      TERMINEE
+      TERMINEE_AVEC_ALERTES
+      ECHEC
+    }
+  class RepartitionAffectation {
+    - id : Long <<PK>>
+    .. candidat ..
+    + numeroInscription : String
+    + candidatNom : String {copie}
+    + ville : String {copie}
+    .. concours ..
+    + numeroConcours : String
+    + nomConcours : String {copie}
+    .. lieu ..
+    + centreId : Long
+    + nomCentre : String {copie}
+    + etablissementId : Long
+    + nomEtablissement : String {copie}
+    + salleId : Long
+    + nomSalle : String {copie}
+    + numeroPlace : Integer
+  }
+  class RepartitionAlerte {
+    - id : Long <<PK>>
+    + type : AlerteType
+    + message : String
+    .. candidat (0..1) ..
+    + numeroInscription : String
+    + candidatNom : String {copie}
+    + ville : String {copie}
+    .. concours / centre ..
+    + numeroConcours : String
+    + nomConcours : String {copie}
+    + centreId : Long
+    + nomCentre : String {copie}
   }
   enum AlerteType <<enumeration>> {
     CAPACITE_DEPASSEE
@@ -160,36 +226,23 @@ package "Répartition" #FAF4FF {
     CONCOURS_INCONNU
     VILLE_NON_GEOLOCALISEE
   }
-  class RepartitionRun {
-    - id : Long <<PK>>
-    + statut : RepartitionStatut
-    + totalCandidats : int
-    + totalAffectes : int
-    + totalAlertes : int
-    --
-    + lancer()
-    + consulter()
-    + reinitialiserAffectations()
-    + supprimer()
-  }
-  class RepartitionAffectation {
-    + numeroInscription : String
-    + numeroPlace : Integer
-  }
-  class RepartitionAlerte {
-    + type : AlerteType
-    + numeroInscription : String
-  }
+  RepartitionAlerte --> AlerteType
   RepartitionRun --> RepartitionStatut
   RepartitionRun "1" *-- "0..*" RepartitionAffectation
   RepartitionRun "1" *-- "0..*" RepartitionAlerte
-  RepartitionAlerte --> AlerteType
+  RepartitionStatut -[hidden]right- RepartitionAffectation
 }
 
-package "Convocations" #FFF4F4 {
+package "Convocations" as pkgConvoc #FFF4F4 {
   class Convocation <<assemblé>> {
     + numeroInscription : String
+    + nom : String
+    + prenom : String
+    + email : String
+    + numeroConcours : String
+    + nomConcours : String
     + nomCentre : String
+    + nomEtablissement : String
     + nomSalle : String
     + dateHeureExamen : Instant
     + numeroPlace : Integer
@@ -201,7 +254,13 @@ package "Convocations" #FFF4F4 {
   class ConvocationEnvoi {
     - id : Long <<PK>>
     + numeroInscription : String
+    + candidatNom : String {copie}
+    + email : String {copie}
+    + numeroConcours : String
+    + nomConcours : String {copie}
     + statut : EnvoiStatut
+    + message : String
+    + declenchePar : String
     + envoyeLe : Instant
     --
     + consulter()
@@ -214,6 +273,7 @@ package "Convocations" #FFF4F4 {
   ConvocationEnvoi --> EnvoiStatut
 }
 
+' Références inter-services (identifiants, pas de FK SQL)
 ConcoursAffectationCentre "0..*" ..> "1" Centre
 Salle "0..*" ..> "0..1" Concours
 Candidat "0..*" ..> "0..1" Concours

@@ -6,10 +6,10 @@ function Get-Days([datetime]$a, [datetime]$b) {
 }
 
 $axisStart = [datetime]"2026-03-06"
-$axisEnd = [datetime]"2026-06-06"
+$axisEnd = [datetime]"2026-08-17"
 $totalDays = Get-Days $axisStart $axisEnd
 
-$width = 2400
+$width = 2600
 $marginL = 620
 $marginR = 50
 $marginT = 160
@@ -39,15 +39,18 @@ $penAxis = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(90, 9
 $title = "Diagramme de Gantt du projet"
 $titleSize = $g.MeasureString($title, $fontTitle)
 $g.DrawString($title, $fontTitle, $brushText, ($width - $titleSize.Width) / 2, 28)
-$sub = "Stage du 6 mars au 6 juin 2026"
+$sub = "Stage du 6 mars au 17 août 2026"
 $subSize = $g.MeasureString($sub, $fontSub)
 $g.DrawString($sub, $fontSub, $brushMuted, ($width - $subSize.Width) / 2, 88)
 
+$aAcute = [char]0x00FB
 $months = @(
   @{ Name = "Mars"; Start = [datetime]"2026-03-06"; End = [datetime]"2026-04-01" },
   @{ Name = "Avril"; Start = [datetime]"2026-04-01"; End = [datetime]"2026-05-01" },
   @{ Name = "Mai"; Start = [datetime]"2026-05-01"; End = [datetime]"2026-06-01" },
-  @{ Name = "Juin"; Start = [datetime]"2026-06-01"; End = [datetime]"2026-06-06" }
+  @{ Name = "Juin"; Start = [datetime]"2026-06-01"; End = [datetime]"2026-07-01" },
+  @{ Name = "Juillet"; Start = [datetime]"2026-07-01"; End = [datetime]"2026-08-01" },
+  @{ Name = ("Ao" + $aAcute + "t"); Start = [datetime]"2026-08-01"; End = [datetime]"2026-08-17" }
 )
 
 foreach ($m in $months) {
@@ -66,9 +69,9 @@ $g.DrawLine($penAxis, $marginL + $chartW, $marginT - 8, $marginL + $chartW, $cha
 $eAcute = [char]0x00E9
 $tasks = @(
   @{ Name = "Cahier des charges"; Start = [datetime]"2026-03-06"; End = [datetime]"2026-03-20"; Color = [System.Drawing.Color]::FromArgb(196, 165, 116); Dates = "6 mars - 19 mars" },
-  @{ Name = "Conception UML"; Start = [datetime]"2026-03-20"; End = [datetime]"2026-04-20"; Color = [System.Drawing.Color]::FromArgb(91, 155, 213); Dates = "20 mars - 19 avril" },
-  @{ Name = ("R" + $eAcute + "alisation"); Start = [datetime]"2026-04-20"; End = [datetime]"2026-05-25"; Color = [System.Drawing.Color]::FromArgb(112, 173, 71); Dates = "20 avril - 24 mai" },
-  @{ Name = "Tests"; Start = [datetime]"2026-05-25"; End = [datetime]"2026-06-07"; Color = [System.Drawing.Color]::FromArgb(237, 125, 49); Dates = "25 mai - 6 juin" }
+  @{ Name = "Conception UML"; Start = [datetime]"2026-03-20"; End = [datetime]"2026-04-27"; Color = [System.Drawing.Color]::FromArgb(91, 155, 213); Dates = "20 mars - 26 avril" },
+  @{ Name = ("R" + $eAcute + "alisation"); Start = [datetime]"2026-04-27"; End = [datetime]"2026-07-27"; Color = [System.Drawing.Color]::FromArgb(112, 173, 71); Dates = "27 avril - 26 juillet" },
+  @{ Name = "Tests"; Start = [datetime]"2026-07-27"; End = [datetime]"2026-08-18"; Color = [System.Drawing.Color]::FromArgb(237, 125, 49); Dates = "27 juillet - 17 aout" }
 )
 
 for ($i = 0; $i -lt $tasks.Count; $i++) {

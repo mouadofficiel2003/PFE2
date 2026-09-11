@@ -12,14 +12,14 @@ Nous commençons par justifier le choix d'UML, puis nous présentons les diagram
 
 \subsection{Le choix d'UML}
 
-La conception du système a été formalisée à l'aide d'UML (Unified Modeling Language), langage de modélisation normalisé, largement utilisé pour décrire le comportement et la structure d'une application avant sa réalisation. Ce choix s'inscrit dans la démarche en cascade retenue pour le projet : les besoins du chapitre~2 sont d'abord traduits en modèles, validés avec l'encadrant, puis servent de référence au développement.
+La conception du système a été formalisée à l'aide d'UML (Unified Modeling Language)~\cite{uml}, langage de modélisation normalisé, largement utilisé pour décrire le comportement et la structure d'une application avant sa réalisation. Ce choix s'inscrit dans la démarche en cascade retenue pour le projet : les besoins du chapitre~2 sont d'abord traduits en modèles, validés avec l'encadrant, puis servent de référence au développement.
 
 UML permet de représenter le système selon plusieurs points de vue complémentaires, sans ambiguïté excessive et de manière indépendante des détails d'implémentation. Trois types de diagrammes ont été retenus, car ils couvrent l'essentiel de la conception métier :
 
 \begin{itemize}
-  \item les \textbf{diagrammes de cas d'utilisation}, qui identifient les acteurs et les fonctionnalités accessibles ;
-  \item les \textbf{diagrammes de séquence}, qui décrivent le déroulement des principaux scénarios (messages échangés et résultat attendu) ;
-  \item les \textbf{diagrammes de classes}, qui structurent les entités du domaine et leurs relations.
+  \item les diagrammes de cas d'utilisation, qui identifient les acteurs et les fonctionnalités accessibles ;
+  \item les diagrammes de séquence, qui décrivent le déroulement des principaux scénarios (messages échangés et résultat attendu) ;
+  \item les diagrammes de classes, qui structurent les entités du domaine et leurs relations.
 \end{itemize}
 
 Cette modélisation vise à garantir la cohérence entre les besoins exprimés (RF-01 à RF-34) et la solution conçue, en particulier sur la séparation des rôles, l'enchaînement import--répartition--convocations, et les règles d'affectation des candidats.
@@ -33,7 +33,7 @@ Cette modélisation vise à garantir la cohérence entre les besoins exprimés (
   \label{fig:logo-plantuml}
 \end{figure}
 
-PlantUML a été utilisé pour produire les diagrammes de modélisation présentés dans ce chapitre, notamment les diagrammes de cas d'utilisation, de séquence et de classes. Son approche textuelle facilite la mise à jour des diagrammes et leur intégration dans le cycle de documentation.
+PlantUML~\cite{plantuml} a été utilisé pour produire les diagrammes de modélisation présentés dans ce chapitre, notamment les diagrammes de cas d'utilisation, de séquence et de classes. Son approche textuelle facilite la mise à jour des diagrammes et leur intégration dans le cycle de documentation.
 
 Ce choix permet de conserver des diagrammes versionnables avec le projet, contrairement à des outils purement graphiques dont les modifications sont plus difficiles à suivre dans un dépôt Git.
 
@@ -80,7 +80,7 @@ Le candidat n'apparaît pas sur ce diagramme : il ne dispose pas d'espace dans l
   \label{fig:usecase-general}
 \end{figure}
 
-Le diagramme de la figure~\ref{fig:usecase-general} situe le système dans son ensemble, avec deux acteurs~: le \textbf{gestionnaire}, à gauche, et l'\textbf{administrateur}, à droite. Tous les cas d'utilisation \textbf{incluent} le cas \textit{S'authentifier}~: aucune fonctionnalité n'est accessible sans connexion préalable.
+Le diagramme de la figure~\ref{fig:usecase-general} situe le système dans son ensemble, avec deux acteurs~: le gestionnaire, à gauche, et l'administrateur, à droite. Tous les cas d'utilisation incluent le cas \textit{S'authentifier}~: aucune fonctionnalité n'est accessible sans connexion préalable.
 
 Les cas de consultation --- tableau de bord, listes des candidats, des concours, des lieux d'examen, de la répartition et des convocations --- sont partagés par les deux acteurs. Les opérations d'écriture métier (gestion des candidats, des concours, des centres, établissements et salles, lancement de la répartition, gestion des convocations) sont en revanche réservées au gestionnaire. L'administrateur est le seul à \textit{Gérer les comptes}~; il n'intervient pas sur les données métier et ne déclenche pas la répartition.
 
@@ -174,15 +174,15 @@ Le diagramme de la figure~\ref{fig:seq-candidats} décrit les opérations du ges
 
 Le scénario se déroule en cinq temps, correspondant aux cadres du diagramme.
 
-\textbf{Consulter la liste.} À l'ouverture de la page, l'application web demande la liste par \texttt{GET /api/candidats}. La passerelle transmet la requête au service candidats, qui exécute un \texttt{SELECT} sur PostgreSQL. La réponse \texttt{200 OK} ramène la liste, ensuite affichée à l'écran.
+Consulter la liste. À l'ouverture de la page, l'application web demande la liste par \texttt{GET /api/candidats}. La passerelle transmet la requête au service candidats, qui exécute un \texttt{SELECT} sur PostgreSQL. La réponse \texttt{200 OK} ramène la liste, ensuite affichée à l'écran.
 
-\textbf{Importer un fichier Excel.} Le gestionnaire choisit un fichier \texttt{.xlsx} des candidats admis. L'application contrôle l'extension, puis envoie le fichier en \texttt{POST /api/candidats/import}. Si le fichier est vide ou d'un autre format, le service répond \texttt{400 Bad Request} et un message d'erreur s'affiche. Sinon, le service lit le tableur, valide les lignes, résout le concours, puis insère ou met à jour chaque candidat selon le CIN. La réponse \texttt{200 OK} indique les volumes traités (insérés, mis à jour, ignorés, erreurs). L'application recharge ensuite la liste par un nouvel appel \texttt{GET /api/candidats}.
+Importer un fichier Excel. Le gestionnaire choisit un fichier \texttt{.xlsx} des candidats admis. L'application contrôle l'extension, puis envoie le fichier en \texttt{POST /api/candidats/import}. Si le fichier est vide ou d'un autre format, le service répond \texttt{400 Bad Request} et un message d'erreur s'affiche. Sinon, le service lit le tableur, valide les lignes, résout le concours, puis insère ou met à jour chaque candidat selon le CIN. La réponse \texttt{200 OK} indique les volumes traités (insérés, mis à jour, ignorés, erreurs). L'application recharge ensuite la liste par un nouvel appel \texttt{GET /api/candidats}.
 
-\textbf{Modifier un candidat.} Le gestionnaire ouvre la fiche «~Modifier~» (données métier et, le cas échéant, affectation manuelle~: centre, établissement, salle, place). L'application envoie un \texttt{PUT /api/candidats/\{numeroInscription\}}. Le service valide le concours et l'affectation, met à jour PostgreSQL, puis la fiche affichée est actualisée.
+Modifier un candidat. Le gestionnaire ouvre la fiche «~Modifier~» (données métier et, le cas échéant, affectation manuelle~: centre, établissement, salle, place). L'application envoie un \texttt{PUT /api/candidats/\{numeroInscription\}}. Le service valide le concours et l'affectation, met à jour PostgreSQL, puis la fiche affichée est actualisée.
 
-\textbf{Supprimer un candidat.} Après confirmation, l'application envoie un \texttt{DELETE /api/candidats/\{numeroInscription\}}. Le service supprime l'enregistrement dans PostgreSQL et le candidat disparaît de la liste.
+Supprimer un candidat. Après confirmation, l'application envoie un \texttt{DELETE /api/candidats/\{numeroInscription\}}. Le service supprime l'enregistrement dans PostgreSQL et le candidat disparaît de la liste.
 
-\textbf{Réinitialiser la liste.} Après confirmation, l'application envoie un \texttt{DELETE /api/candidats}. Le service supprime l'ensemble des candidats. La réponse \texttt{200 OK} indique le nombre d'éléments supprimés et l'écran affiche une liste vide.
+Réinitialiser la liste. Après confirmation, l'application envoie un \texttt{DELETE /api/candidats}. Le service supprime l'ensemble des candidats. La réponse \texttt{200 OK} indique le nombre d'éléments supprimés et l'écran affiche une liste vide.
 
 \subsubsection{Diagramme de séquence --- gestion des concours}
 
@@ -192,61 +192,61 @@ Le diagramme de la figure~\ref{fig:seq-concours} décrit les opérations du gest
 
 Le scénario se déroule en quatre temps, correspondant aux cadres du diagramme.
 
-\textbf{Consulter la liste.} À l'ouverture de la page, l'application web demande la liste par \texttt{GET /api/concours}. La passerelle transmet la requête au service concours, qui lit PostgreSQL (concours et centres affectés). La réponse \texttt{200 OK} ramène la liste, ensuite affichée à l'écran.
+Consulter la liste. À l'ouverture de la page, l'application web demande la liste par \texttt{GET /api/concours}. La passerelle transmet la requête au service concours, qui lit PostgreSQL (concours et centres affectés). La réponse \texttt{200 OK} ramène la liste, ensuite affichée à l'écran.
 
-\textbf{Ajouter un concours.} Le gestionnaire saisit le nom, le numéro, la date et l'heure d'examen, ainsi qu'au moins un centre. L'application envoie un \texttt{POST /api/concours}. Le service vérifie l'unicité du numéro et l'existence des centres. Si le numéro est déjà utilisé, il répond \texttt{409 Conflict} et un message d'erreur s'affiche. Sinon, le concours et les affectations de centres sont enregistrés (\texttt{201 Created}) et l'application recharge la liste par un nouvel appel \texttt{GET /api/concours}.
+Ajouter un concours. Le gestionnaire saisit le nom, le numéro, la date et l'heure d'examen, ainsi qu'au moins un centre. L'application envoie un \texttt{POST /api/concours}. Le service vérifie l'unicité du numéro et l'existence des centres. Si le numéro est déjà utilisé, il répond \texttt{409 Conflict} et un message d'erreur s'affiche. Sinon, le concours et les affectations de centres sont enregistrés (\texttt{201 Created}) et l'application recharge la liste par un nouvel appel \texttt{GET /api/concours}.
 
-\textbf{Modifier un concours.} Le gestionnaire ouvre la fiche «~Modifier~» et met à jour les champs ou les centres. L'application envoie un \texttt{PUT /api/concours/\{numeroConcours\}}. Le service valide les données, met à jour PostgreSQL, puis l'affichage est actualisé.
+Modifier un concours. Le gestionnaire ouvre la fiche «~Modifier~» et met à jour les champs ou les centres. L'application envoie un \texttt{PUT /api/concours/\{numeroConcours\}}. Le service valide les données, met à jour PostgreSQL, puis l'affichage est actualisé.
 
-\textbf{Supprimer un concours.} Après confirmation, l'application envoie un \texttt{DELETE /api/concours/\{numeroConcours\}}. Le service supprime l'enregistrement dans PostgreSQL et le concours disparaît de la liste.
+Supprimer un concours. Après confirmation, l'application envoie un \texttt{DELETE /api/concours/\{numeroConcours\}}. Le service supprime l'enregistrement dans PostgreSQL et le concours disparaît de la liste.
 
 \subsubsection{Diagramme de séquence --- gestion des centres}
 
-Le diagramme de la figure~\ref{fig:seq-centres} décrit les opérations du gestionnaire sur la page des lieux, pour le référentiel des \textbf{centres} (pôles géographiques, par exemple une ville d'examen). Cinq participants interviennent~: le gestionnaire, l'application web (React), la passerelle API, le service lieux (Spring Boot) et PostgreSQL. Toutes les requêtes transitent par la passerelle, avec l'en-tête \texttt{Authorization: Bearer}. Un centre est identifié par un nom unique. Les concours associés y apparaissent en lecture~; leur rattachement se gère depuis la page des concours.
+Le diagramme de la figure~\ref{fig:seq-centres} décrit les opérations du gestionnaire sur la page des lieux, pour le référentiel des centres (pôles géographiques, par exemple une ville d'examen). Cinq participants interviennent~: le gestionnaire, l'application web (React), la passerelle API, le service lieux (Spring Boot) et PostgreSQL. Toutes les requêtes transitent par la passerelle, avec l'en-tête \texttt{Authorization: Bearer}. Un centre est identifié par un nom unique. Les concours associés y apparaissent en lecture~; leur rattachement se gère depuis la page des concours.
 
 \fullpagefig{seq-centres.png}{Diagramme de séquence --- gestion des centres}{fig:seq-centres}
 
 Le scénario se déroule en quatre temps, correspondant aux cadres du diagramme.
 
-\textbf{Consulter les centres.} À l'ouverture de la page, l'application web demande la liste par \texttt{GET /api/centres}. La passerelle transmet la requête au service lieux, qui exécute un \texttt{SELECT} sur PostgreSQL. La réponse \texttt{200 OK} ramène la liste, ensuite affichée à l'écran. La sélection d'un centre déclenche un \texttt{GET /api/centres/\{id\}}, qui ramène le détail, y compris les établissements rattachés.
+Consulter les centres. À l'ouverture de la page, l'application web demande la liste par \texttt{GET /api/centres}. La passerelle transmet la requête au service lieux, qui exécute un \texttt{SELECT} sur PostgreSQL. La réponse \texttt{200 OK} ramène la liste, ensuite affichée à l'écran. La sélection d'un centre déclenche un \texttt{GET /api/centres/\{id\}}, qui ramène le détail, y compris les établissements rattachés.
 
-\textbf{Ajouter un centre.} Le gestionnaire saisit uniquement le nom. L'application envoie un \texttt{POST /api/centres}. Le service vérifie l'unicité du nom. Si le nom est déjà utilisé, il répond \texttt{409 Conflict} et un message d'erreur s'affiche. Sinon, le centre est enregistré (\texttt{201 Created}), un identifiant \texttt{id\_centre} est généré, et la liste est mise à jour.
+Ajouter un centre. Le gestionnaire saisit uniquement le nom. L'application envoie un \texttt{POST /api/centres}. Le service vérifie l'unicité du nom. Si le nom est déjà utilisé, il répond \texttt{409 Conflict} et un message d'erreur s'affiche. Sinon, le centre est enregistré (\texttt{201 Created}), un identifiant \texttt{id\_centre} est généré, et la liste est mise à jour.
 
-\textbf{Modifier un centre.} Le gestionnaire met à jour le nom. L'application envoie un \texttt{PUT /api/centres/\{id\}}. Le service contrôle à nouveau l'unicité, met à jour PostgreSQL, puis l'affichage est actualisé.
+Modifier un centre. Le gestionnaire met à jour le nom. L'application envoie un \texttt{PUT /api/centres/\{id\}}. Le service contrôle à nouveau l'unicité, met à jour PostgreSQL, puis l'affichage est actualisé.
 
-\textbf{Supprimer un centre.} Après confirmation, l'application envoie un \texttt{DELETE /api/centres/\{id\}}. Le service supprime le centre dans PostgreSQL~; la suppression entraîne, en cascade, les établissements et les salles rattachés. Le centre disparaît ensuite de la liste.
+Supprimer un centre. Après confirmation, l'application envoie un \texttt{DELETE /api/centres/\{id\}}. Le service supprime le centre dans PostgreSQL~; la suppression entraîne, en cascade, les établissements et les salles rattachés. Le centre disparaît ensuite de la liste.
 
 \subsubsection{Diagramme de séquence --- gestion des établissements}
 
-Le diagramme de la figure~\ref{fig:seq-etablissements} décrit les opérations du gestionnaire sur les \textbf{établissements} d'un centre déjà ouvert. Cinq participants interviennent~: le gestionnaire, l'application web (React), la passerelle API, le service lieux (Spring Boot) et PostgreSQL. Toutes les requêtes transitent par la passerelle, avec l'en-tête \texttt{Authorization: Bearer}. Un établissement appartient toujours à un centre et porte un nom unique dans ce centre. Les concours y apparaissent en lecture, via les salles.
+Le diagramme de la figure~\ref{fig:seq-etablissements} décrit les opérations du gestionnaire sur les établissements d'un centre déjà ouvert. Cinq participants interviennent~: le gestionnaire, l'application web (React), la passerelle API, le service lieux (Spring Boot) et PostgreSQL. Toutes les requêtes transitent par la passerelle, avec l'en-tête \texttt{Authorization: Bearer}. Un établissement appartient toujours à un centre et porte un nom unique dans ce centre. Les concours y apparaissent en lecture, via les salles.
 
 \fullpagefig{seq-etablissements.png}{Diagramme de séquence --- gestion des établissements}{fig:seq-etablissements}
 
 Le scénario se déroule en quatre temps, correspondant aux cadres du diagramme.
 
-\textbf{Consulter les établissements.} La liste ne fait pas l'objet d'un endpoint dédié~: elle est obtenue par \texttt{GET /api/centres/\{id\}}. La passerelle transmet la requête au service lieux, qui lit PostgreSQL et renvoie le centre avec ses établissements (noms et salles). La réponse \texttt{200 OK} permet d'afficher les établissements du centre ouvert.
+Consulter les établissements. La liste ne fait pas l'objet d'un endpoint dédié~: elle est obtenue par \texttt{GET /api/centres/\{id\}}. La passerelle transmet la requête au service lieux, qui lit PostgreSQL et renvoie le centre avec ses établissements (noms et salles). La réponse \texttt{200 OK} permet d'afficher les établissements du centre ouvert.
 
-\textbf{Ajouter un établissement.} Le gestionnaire saisit uniquement le nom. L'application envoie un \texttt{POST /api/centres/\{id\}/etablissements}. Le service vérifie l'unicité du nom \textbf{dans ce centre}. Si le nom est déjà utilisé, il répond \texttt{409 Conflict} et un message d'erreur s'affiche. Sinon, l'établissement est enregistré (\texttt{201 Created}) et un identifiant \texttt{id\_etablissement} est généré.
+Ajouter un établissement. Le gestionnaire saisit uniquement le nom. L'application envoie un \texttt{POST /api/centres/\{id\}/etablissements}. Le service vérifie l'unicité du nom dans ce centre. Si le nom est déjà utilisé, il répond \texttt{409 Conflict} et un message d'erreur s'affiche. Sinon, l'établissement est enregistré (\texttt{201 Created}) et un identifiant \texttt{id\_etablissement} est généré.
 
-\textbf{Modifier un établissement.} Le gestionnaire met à jour le nom. L'application envoie un \texttt{PUT /api/etablissements/\{id\}}. Le service contrôle à nouveau l'unicité, met à jour PostgreSQL, puis l'affichage est actualisé.
+Modifier un établissement. Le gestionnaire met à jour le nom. L'application envoie un \texttt{PUT /api/etablissements/\{id\}}. Le service contrôle à nouveau l'unicité, met à jour PostgreSQL, puis l'affichage est actualisé.
 
-\textbf{Supprimer un établissement.} Après confirmation, l'application envoie un \texttt{DELETE /api/etablissements/\{id\}}. Le service supprime l'établissement dans PostgreSQL~; la suppression entraîne, en cascade, les salles rattachées. L'établissement disparaît ensuite de la liste.
+Supprimer un établissement. Après confirmation, l'application envoie un \texttt{DELETE /api/etablissements/\{id\}}. Le service supprime l'établissement dans PostgreSQL~; la suppression entraîne, en cascade, les salles rattachées. L'établissement disparaît ensuite de la liste.
 
 \subsubsection{Diagramme de séquence --- gestion des salles}
 
-Le diagramme de la figure~\ref{fig:seq-salles} décrit les opérations du gestionnaire sur les \textbf{salles} d'un établissement, dans un centre déjà ouvert. Cinq participants interviennent~: le gestionnaire, l'application web (React), la passerelle API, le service lieux (Spring Boot) et PostgreSQL. Toutes les requêtes transitent par la passerelle, avec l'en-tête \texttt{Authorization: Bearer}. Une salle appartient toujours à un établissement, porte un nom unique dans cet établissement, une capacité, et au plus un concours. L'endpoint \texttt{GET /api/salles?numeroConcours=} existe par ailleurs pour la répartition et le tableau de bord, pas pour cette page.
+Le diagramme de la figure~\ref{fig:seq-salles} décrit les opérations du gestionnaire sur les salles d'un établissement, dans un centre déjà ouvert. Cinq participants interviennent~: le gestionnaire, l'application web (React), la passerelle API, le service lieux (Spring Boot) et PostgreSQL. Toutes les requêtes transitent par la passerelle, avec l'en-tête \texttt{Authorization: Bearer}. Une salle appartient toujours à un établissement, porte un nom unique dans cet établissement, une capacité, et au plus un concours. L'endpoint \texttt{GET /api/salles?numeroConcours=} existe par ailleurs pour la répartition et le tableau de bord, pas pour cette page.
 
 \fullpagefig{seq-salles.png}{Diagramme de séquence --- gestion des salles}{fig:seq-salles}
 
 Le scénario se déroule en quatre temps, correspondant aux cadres du diagramme.
 
-\textbf{Consulter les salles.} La liste ne fait pas l'objet d'un endpoint dédié~: elle est obtenue par \texttt{GET /api/centres/\{id\}}. La passerelle transmet la requête au service lieux, qui lit PostgreSQL et renvoie le centre, ses établissements et les salles imbriquées (nom, nombre de places, concours). La réponse \texttt{200 OK} permet d'afficher les salles.
+Consulter les salles. La liste ne fait pas l'objet d'un endpoint dédié~: elle est obtenue par \texttt{GET /api/centres/\{id\}}. La passerelle transmet la requête au service lieux, qui lit PostgreSQL et renvoie le centre, ses établissements et les salles imbriquées (nom, nombre de places, concours). La réponse \texttt{200 OK} permet d'afficher les salles.
 
-\textbf{Ajouter une salle.} Le gestionnaire saisit le nom, le nombre de places et éventuellement un concours. L'application envoie un \texttt{POST /api/etablissements/\{id\}/salles}. Le service vérifie l'unicité du nom \textbf{dans cet établissement} et l'existence du concours. Si le nom est déjà utilisé, il répond \texttt{409 Conflict} et un message d'erreur s'affiche. Sinon, la salle est enregistrée (\texttt{201 Created}) et un identifiant \texttt{id\_salle} est généré.
+Ajouter une salle. Le gestionnaire saisit le nom, le nombre de places et éventuellement un concours. L'application envoie un \texttt{POST /api/etablissements/\{id\}/salles}. Le service vérifie l'unicité du nom dans cet établissement et l'existence du concours. Si le nom est déjà utilisé, il répond \texttt{409 Conflict} et un message d'erreur s'affiche. Sinon, la salle est enregistrée (\texttt{201 Created}) et un identifiant \texttt{id\_salle} est généré.
 
-\textbf{Modifier une salle.} Le gestionnaire met à jour le nom, les places et/ou le concours. L'application envoie un \texttt{PUT /api/salles/\{idSalle\}}. Le service répète les contrôles d'unicité et d'existence, met à jour PostgreSQL, puis l'affichage est actualisé.
+Modifier une salle. Le gestionnaire met à jour le nom, les places et/ou le concours. L'application envoie un \texttt{PUT /api/salles/\{idSalle\}}. Le service répète les contrôles d'unicité et d'existence, met à jour PostgreSQL, puis l'affichage est actualisé.
 
-\textbf{Supprimer une salle.} Après confirmation, l'application envoie un \texttt{DELETE /api/salles/\{idSalle\}}. Le service supprime la salle dans PostgreSQL et celle-ci disparaît de la liste.
+Supprimer une salle. Après confirmation, l'application envoie un \texttt{DELETE /api/salles/\{idSalle\}}. Le service supprime la salle dans PostgreSQL et celle-ci disparaît de la liste.
 
 \subsubsection{Diagramme de séquence --- répartition automatique}
 
@@ -266,60 +266,77 @@ Le diagramme est large (huit lignes de vie)~: il est donc présenté en page pay
 
 Le scénario se déroule en quatre temps, correspondant aux cadres du diagramme.
 
-\textbf{Déclenchement.} Un clic sur «~Lancer la répartition~» envoie un \texttt{POST /api/repartition/run} via la passerelle vers le service répartition.
+Déclenchement. Un clic sur «~Lancer la répartition~» envoie un \texttt{POST /api/repartition/run} via la passerelle vers le service répartition.
 
-\textbf{Lecture des référentiels.} Le service répartition interroge d'abord \texttt{GET /api/concours}. Pour chaque concours, il demande les salles par \texttt{GET /api/salles?numeroConcours=} (salles, centres et capacités), puis charge les candidats par \texttt{GET /api/candidats} (ville et concours).
+Lecture des référentiels. Le service répartition interroge d'abord \texttt{GET /api/concours}. Pour chaque concours, il demande les salles par \texttt{GET /api/salles?numeroConcours=} (salles, centres et capacités), puis charge les candidats par \texttt{GET /api/candidats} (ville et concours).
 
-\textbf{Calcul du plan (en mémoire).} Les candidats sont traités dans l'ordre du numéro d'inscription. Pour chacun, les centres du concours sont classés par proximité géographique (même ville, même région, puis distance). Si une salle a encore de la place, une affectation est réservée (centre, établissement, salle, numéro de place). Sinon, une alerte est enregistrée (capacité dépassée, aucun centre, concours inconnu ou ville non géolocalisée).
+Calcul du plan (en mémoire). Les candidats sont traités dans l'ordre du numéro d'inscription. Pour chacun, les centres du concours sont classés par proximité géographique (même ville, même région, puis distance). Si une salle a encore de la place, une affectation est réservée (centre, établissement, salle, numéro de place). Sinon, une alerte est enregistrée (capacité dépassée, aucun centre, concours inconnu ou ville non géolocalisée).
 
-\textbf{Écriture des affectations et de l'historique.} Les affectations sont écrites en lot par \texttt{PATCH /api/candidats/affectations}. L'exécution (affectations et alertes) est historisée en PostgreSQL. Le service répond \texttt{201 Created} avec la synthèse~; l'application affiche alors le résultat au gestionnaire.
+Écriture des affectations et de l'historique. Les affectations sont écrites en lot par \texttt{PATCH /api/candidats/affectations}. L'exécution (affectations et alertes) est historisée en PostgreSQL. Le service répond \texttt{201 Created} avec la synthèse~; l'application affiche alors le résultat au gestionnaire.
 
 \subsubsection{Diagramme de séquence --- gestion des convocations}
 
-Le diagramme de la figure~\ref{fig:seq-convocations} décrit les opérations du gestionnaire sur les convocations. Neuf participants interviennent~: le gestionnaire, l'application web (React), la passerelle API, le service convocations, les services candidats, concours et lieux, Gmail (SMTP) et PostgreSQL. Les requêtes du navigateur transitent par la passerelle, avec l'en-tête \texttt{Authorization: Bearer}~; le service convocations relaie ce jeton vers les trois services métier. Une convocation n'est pas enregistrée comme entité~: elle est assemblée à la lecture, uniquement si l'affectation est complète. PostgreSQL ne conserve que l'historique des envois.
+Les diagrammes des figures~\ref{fig:seq-convocations}, \ref{fig:seq-convocations-pdf} et~\ref{fig:seq-convocations-envoi} décrivent les opérations du gestionnaire sur les convocations. Les participants comprennent le gestionnaire, l'application web (React), la passerelle API, le service convocations, Gmail (SMTP) et PostgreSQL. Sur la figure~\ref{fig:seq-convocations}, les appels vers les services candidats, concours et lieux sont regroupés sur la ligne de vie «~Services métier~», les chemins d'API restant indiqués sur les messages. Les requêtes du navigateur transitent par la passerelle, avec l'en-tête \texttt{Authorization: Bearer}~; le service convocations relaie ce jeton vers les trois services métier. Une convocation n'est pas enregistrée comme entité~: elle est assemblée à la lecture, uniquement si l'affectation est complète. PostgreSQL ne conserve que l'historique des envois.
 
-Le diagramme est large (neuf lignes de vie)~: il est donc présenté en page paysage, afin de rester lisible.
+Le scénario est présenté en trois figures, une par opération, afin que les messages restent lisibles. Les diagrammes les plus larges sont en page paysage.
 
 \clearpage
 \begin{landscape}
 \begin{figure}[H]
   \centering
-  \includegraphics[width=\linewidth,height=0.86\textheight,keepaspectratio]{seq-convocations.png}
-  \caption{Diagramme de séquence --- gestion des convocations}
+  \includegraphics[width=\linewidth,height=0.90\textheight,keepaspectratio]{seq-convocations-1.png}
+  \caption{Diagramme de séquence --- gestion des convocations (1/3)~: consulter la liste}
   \label{fig:seq-convocations}
 \end{figure}
 \end{landscape}
 
-Le scénario se déroule en trois temps, correspondant aux cadres du diagramme.
+Consulter les convocations. À l'ouverture de la page, l'application demande l'aperçu par \texttt{GET /api/convocations}. Le service convocations assemble les données auprès des services candidats, concours et lieux (\texttt{GET /api/candidats}, \texttt{GET /api/concours}, puis \texttt{GET /api/salles?numeroConcours=} pour chaque concours concerné) et ne retient que les candidats dont l'affectation est complète (centre, établissement, salle et place). Un second appel, \texttt{GET /api/convocations/envois}, lit en PostgreSQL l'historique des envois. La liste et l'historique s'affichent ensuite à l'écran.
 
-\textbf{Consulter les convocations.} À l'ouverture de la page, l'application demande l'aperçu par \texttt{GET /api/convocations}. Le service convocations assemble les données auprès des services candidats, concours et lieux (\texttt{GET /api/candidats}, \texttt{GET /api/concours}, puis \texttt{GET /api/salles?numeroConcours=} pour chaque concours concerné) et ne retient que les candidats dont l'affectation est complète (centre, établissement, salle et place). Un second appel, \texttt{GET /api/convocations/envois}, lit en PostgreSQL l'historique des envois. La liste et l'historique s'affichent ensuite à l'écran.
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.52\textheight,keepaspectratio]{seq-convocations-2.png}
+  \caption{Diagramme de séquence --- gestion des convocations (2/3)~: consulter un PDF}
+  \label{fig:seq-convocations-pdf}
+\end{figure}
 
-\textbf{Consulter un PDF.} Un clic sur «~Voir le PDF~» déclenche \texttt{GET /api/convocations/\{numeroInscription\}/pdf}. Le service assemble la convocation, génère le fichier et le renvoie (\texttt{200 OK}). Le PDF n'est pas stocké.
+Consulter un PDF. Un clic sur «~Voir le PDF~» déclenche \texttt{GET /api/convocations/\{numeroInscription\}/pdf}. Le service assemble la convocation, génère le fichier et le renvoie (\texttt{200 OK}). Le PDF n'est pas stocké.
 
-\textbf{Envoyer toutes les convocations.} L'envoi groupé se fait par \texttt{POST /api/convocations/envoyer}. Si Gmail n'est pas configuré, la réponse est \texttt{503}~; s'il n'y a aucun candidat affecté, \texttt{400}. Sinon, pour chaque convocation, un PDF est généré et envoyé par e-mail (pièce jointe)~; chaque tentative est historisée (\texttt{ENVOYE} ou \texttt{ECHEC}) et le bilan revient en \texttt{200 OK}. L'historique peut être vidé par \texttt{POST /api/convocations/envois/reinitialiser}.
+\clearpage
+\begin{landscape}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth,height=0.90\textheight,keepaspectratio]{seq-convocations-3.png}
+  \caption{Diagramme de séquence --- gestion des convocations (3/3)~: envoyer toutes les convocations}
+  \label{fig:seq-convocations-envoi}
+\end{figure}
+\end{landscape}
+
+Envoyer toutes les convocations. L'envoi groupé se fait par \texttt{POST /api/convocations/envoyer}. Si Gmail n'est pas configuré, la réponse est \texttt{503}~; s'il n'y a aucun candidat affecté, \texttt{400}. Sinon, pour chaque convocation, un PDF est généré et envoyé par e-mail (pièce jointe)~; chaque tentative est historisée (\texttt{ENVOYE} ou \texttt{ECHEC}) et le bilan revient en \texttt{200 OK}. L'historique peut être vidé par \texttt{POST /api/convocations/envois/reinitialiser}.
 
 \subsection{Diagramme de classes général}
 
-Le diagramme de classes décrit la structure statique du système : classes métier, attributs essentiels, opérations et relations. Il complète les cas d'utilisation (qui fait quoi) et les diagrammes de séquence (comment les échanges se déroulent).
+Le diagramme de classes décrit la structure statique du système : classes métier, attributs (y compris les libellés dénormalisés), opérations et relations. Il complète les cas d'utilisation (qui fait quoi) et les diagrammes de séquence (comment les échanges se déroulent).
 
-Le diagramme est présenté en quatre figures, afin que les classes, attributs et relations restent lisibles en page A4. La première rassemble l'authentification, les concours et les lieux ; la deuxième détaille le candidat ; la troisième, la répartition ; la quatrième, les convocations.
+Le diagramme est présenté en une seule vue d'ensemble, en page paysage, afin de conserver les relations entre tous les domaines.
 
-\fullpagefig{classe-general-1.png}{Diagramme de classes (1/4) --- authentification, concours et lieux d'examen}{fig:classe-general}
+\clearpage
+\begin{landscape}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth,height=0.90\textheight,keepaspectratio]{classe-general.png}
+  \caption{Diagramme de classes général}
+  \label{fig:classe-general}
+\end{figure}
+\end{landscape}
 
-\fullpagefig{classe-general-2.png}{Diagramme de classes (2/4) --- candidats}{fig:classe-candidats}
-
-\fullpagefig{classe-general-3.png}{Diagramme de classes (3/4) --- répartition automatique}{fig:classe-repartition}
-
-\fullpagefig{classe-general-4.png}{Diagramme de classes (4/4) --- convocations}{fig:classe-convocations}
-
-Le diagramme regroupe les classes par domaine. Un utilisateur porte un rôle \texttt{ADMINISTRATEUR} ou \texttt{GESTIONNAIRE} ; les opérations \texttt{creer}, \texttt{modifier}, \texttt{supprimer} et \texttt{consulter} concernent les comptes gestionnaires, tandis que \texttt{sAuthentifier} s'applique aux deux rôles. Un concours est identifié par son numéro ; il a un nom, une date et une heure d'examen, et il est composé d'au moins un centre (\texttt{ConcoursAffectationCentre}). Les lieux forment une composition : un centre (ville, nom unique) contient des établissements (nom unique dans le centre), eux-mêmes composés de salles (nom unique dans l'établissement, capacité, au plus un concours). Un candidat, créé uniquement par \texttt{importer} (fichier Excel), est identifié par son numéro d'inscription ; le CIN est unique. Il est rattaché à un concours et, après répartition, porte éventuellement un siège (\texttt{idCentre}, \texttt{idEtablissement}, \texttt{idSalle}, \texttt{numeroPlace}). La répartition s'historise dans un \texttt{RepartitionRun} (\texttt{lancer}, \texttt{reinitialiserAffectations}), composé d'affectations et d'alertes (\texttt{CAPACITE\_DEPASSEE}, \texttt{AUCUN\_CENTRE\_DISPONIBLE}, \texttt{CONCOURS\_INCONNU}, \texttt{VILLE\_NON\_GEOLOCALISEE}). Une convocation n'est pas persistée : elle est <<assemblée>> à la lecture si l'affectation est complète (\texttt{consulter}, \texttt{telechargerPdf}, \texttt{envoyerToutes}). Seul l'envoi est enregistré (\texttt{ConvocationEnvoi}, statuts \texttt{ENVOYE} ou \texttt{ECHEC}). Les losanges pleins marquent la composition ; les flèches pointillées, une référence par identifiant (numéro de concours, identifiant de centre ou de salle, numéro d'inscription).
+Le diagramme regroupe les classes par domaine. Un utilisateur porte un rôle \texttt{ADMINISTRATEUR} ou \texttt{GESTIONNAIRE} ; les opérations \texttt{creer}, \texttt{modifier}, \texttt{supprimer} et \texttt{consulter} concernent les comptes gestionnaires, tandis que \texttt{sAuthentifier} s'applique aux deux rôles. Un concours est identifié par son numéro ; il a un nom, une date et une heure d'examen, et il est composé d'au moins un centre (\texttt{ConcoursAffectationCentre}), avec copie du \texttt{nomCentre}. Les lieux forment une composition : un centre (nom unique) contient des établissements (nom unique dans le centre), eux-mêmes composés de salles (nom unique dans l'établissement, capacité, au plus un concours). Un candidat, créé uniquement par \texttt{importer} (fichier Excel), est identifié par son numéro d'inscription ; le CIN est unique. Il porte son identité complète, le concours (\texttt{numeroConcours} et \texttt{nomConcours} recopié), et, après répartition, éventuellement un siège (\texttt{idCentre}, \texttt{idEtablissement}, \texttt{idSalle}, \texttt{numeroPlace}). La répartition s'historise dans un \texttt{RepartitionRun} (\texttt{lancer}, \texttt{reinitialiserAffectations}), composé d'affectations et d'alertes (\texttt{CAPACITE\_DEPASSEE}, \texttt{AUCUN\_CENTRE\_DISPONIBLE}, \texttt{CONCOURS\_INCONNU}, \texttt{VILLE\_NON\_GEOLOCALISEE}). Chaque \texttt{RepartitionAffectation} recopie les libellés du candidat, du concours, du centre, de l'établissement et de la salle, afin que l'historique d'un run reste lisible si une source est renommée. Une convocation n'est pas persistée : elle est <<assemblée>> à la lecture si l'affectation est complète, avec les noms du candidat et des lieux (\texttt{consulter}, \texttt{telechargerPdf}, \texttt{envoyerToutes}). Seul l'envoi est enregistré (\texttt{ConvocationEnvoi}, statuts \texttt{ENVOYE} ou \texttt{ECHEC}), avec copie du nom et de l'e-mail. Les losanges pleins marquent la composition ; les flèches pointillées, une référence par identifiant ; la contrainte \{copie\} désigne un libellé dénormalisé.
 
 \section{Conclusion}
 
-Ce chapitre a présenté la conception de la plateforme de dématérialisation de la gestion des candidatures, selon une approche UML. Le diagramme de cas d'utilisation général a clarifié les fonctionnalités autour de deux acteurs : le \textbf{gestionnaire}, responsable de l'écriture métier, et l'\textbf{administrateur}, en lecture sur le métier et seul habilité à gérer les comptes gestionnaires. Les diagrammes de séquence ont décrit la dynamique des échanges entre l'application web, la \textbf{passerelle API} et les services concernés : authentification, candidatures (import Excel), concours, centres, établissements, salles, répartition automatique et convocations. Le diagramme de classes a formalisé la structure des entités métier et leurs relations (composition des lieux, références par identifiant, convocation assemblée à la lecture).
+Ce chapitre a présenté la conception de la plateforme de dématérialisation de la gestion des candidatures, selon une approche UML. Le diagramme de cas d'utilisation général a clarifié les fonctionnalités autour de deux acteurs : le gestionnaire, responsable de l'écriture métier, et l'administrateur, en lecture sur le métier et seul habilité à gérer les comptes gestionnaires. Les diagrammes de séquence ont décrit la dynamique des échanges entre l'application web, la passerelle API et les services concernés : authentification, candidatures (import Excel), concours, centres, établissements, salles, répartition automatique et convocations. Le diagramme de classes a formalisé la structure des entités métier et leurs relations (composition des lieux, références par identifiant, convocation assemblée à la lecture).
 
 Cette conception fixe les règles essentielles du système. Les candidats sont créés uniquement par import. Un concours s'appuie sur au moins un centre. Les salles portent une capacité et au plus un concours. La répartition place les candidats selon la proximité géographique et la capacité des salles. Une convocation n'existe que si l'affectation est complète (centre, établissement, salle et place) ; elle n'est pas stockée, et seul l'historique des envois par e-mail est conservé.
 
-Cette modélisation fournit une base cohérente pour la suite du rapport. Le chapitre suivant présente les \textbf{outils} utilisés et illustre l'application par des \textbf{captures d'écran}, sans reprendre ici le détail de la réalisation.
+Cette modélisation fournit une base cohérente pour la suite du rapport. Le chapitre suivant présente les outils utilisés et illustre l'application par des captures d'écran.
 
 \end{onehalfspace}

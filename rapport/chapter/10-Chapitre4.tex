@@ -10,18 +10,16 @@ Nous commençons par décrire les principaux outils et technologies, chacun dans
 
 \section{Présentation des outils}
 
-Cette section décrit l'environnement logiciel utilisé pour réaliser la plateforme. Chaque outil est présenté dans le rôle qu'il joue dans ce projet. PlantUML, déjà présenté au chapitre~3 (figure~\ref{fig:logo-plantuml}), a servi à produire les diagrammes UML ; il n'est pas repris ici.
+Cette section décrit l'environnement logiciel utilisé pour réaliser la plateforme. Chaque outil est présenté dans le rôle qu'il joue dans ce projet.
 
 \subsection{Environnement de développement}
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.28\textwidth]{windows-logo.png}
-  \caption{Logo de Windows}
-  \label{fig:logo-windows}
 \end{figure}
 
-Le développement a été conduit sous \textbf{Windows}. Ce système d'exploitation a accueilli l'éditeur, le JDK, Maven, PostgreSQL et l'environnement Node.js nécessaire au frontend.
+Le développement a été conduit sous Windows. Ce système d'exploitation a accueilli l'éditeur, le JDK, Maven, PostgreSQL et l'environnement Node.js nécessaire au frontend.
 
 \begin{figure}[H]
   \centering
@@ -30,7 +28,7 @@ Le développement a été conduit sous \textbf{Windows}. Ce système d'exploitat
   \label{fig:logo-vscode}
 \end{figure}
 
-\textbf{Visual Studio Code} a été utilisé comme environnement de développement. Il a permis d'éditer le frontend React (TypeScript), les sources Java des microservices, les fichiers Maven et la documentation du projet, dans un même éditeur.
+Visual Studio Code~\cite{vscode} a été utilisé comme environnement de développement. Il a permis d'éditer le frontend React (TypeScript), les sources Java des microservices, les fichiers Maven et la documentation du projet, dans un même éditeur.
 
 \begin{figure}[H]
   \centering
@@ -39,7 +37,7 @@ Le développement a été conduit sous \textbf{Windows}. Ce système d'exploitat
   \label{fig:logo-java}
 \end{figure}
 
-Le langage \textbf{Java 17} constitue le socle du backend. Les six microservices et la passerelle API sont écrits en Java 17 et s'exécutent sur la machine virtuelle Java.
+Le langage Java 17~\cite{java} constitue le socle du backend. Les six microservices et la passerelle API sont écrits en Java 17 et s'exécutent sur la machine virtuelle Java.
 
 \begin{figure}[H]
   \centering
@@ -48,7 +46,7 @@ Le langage \textbf{Java 17} constitue le socle du backend. Les six microservices
   \label{fig:logo-maven}
 \end{figure}
 
-\textbf{Maven} assure la construction du backend, organisé en projet multi-modules : la passerelle et les six services sont déclarés dans un POM parent, qui fixe notamment Spring Boot 3.4.4 et Java 17.
+Maven~\cite{maven} assure la construction du backend, organisé en projet multi-modules : la passerelle et les six services sont déclarés dans un POM parent, qui fixe notamment Spring Boot 3.4.4 et Java 17.
 
 \subsection{Technologies côté serveur}
 
@@ -59,7 +57,7 @@ Le langage \textbf{Java 17} constitue le socle du backend. Les six microservices
   \label{fig:logo-spring-boot}
 \end{figure}
 
-\textbf{Spring Boot 3.4.4} est le cadre d'application de chaque microservice. Il fournit le serveur web, l'injection de dépendances, l'accès aux données (JPA) et la configuration, de sorte que chaque service reste une application autonome.
+Spring Boot 3.4.4~\cite{spring-boot} est le cadre d'application de chaque microservice. Il fournit le serveur web, l'injection de dépendances, l'accès aux données (JPA) et la configuration, de sorte que chaque service reste une application autonome.
 
 \begin{figure}[H]
   \centering
@@ -68,7 +66,7 @@ Le langage \textbf{Java 17} constitue le socle du backend. Les six microservices
   \label{fig:logo-spring-cloud}
 \end{figure}
 
-\textbf{Spring Cloud Gateway} (Spring Cloud 2024.0.1) constitue le point d'entrée unique des appels HTTP. Le navigateur n'interroge pas les microservices directement : les requêtes transitent par la passerelle, qui les achemine vers le service concerné.
+Spring Cloud Gateway~\cite{spring-cloud-gateway} (Spring Cloud 2024.0.1) constitue le point d'entrée unique des appels HTTP. Le navigateur n'interroge pas les microservices directement : les requêtes transitent par la passerelle, qui les achemine vers le service concerné.
 
 \begin{figure}[H]
   \centering
@@ -77,7 +75,7 @@ Le langage \textbf{Java 17} constitue le socle du backend. Les six microservices
   \label{fig:logo-spring-security}
 \end{figure}
 
-\textbf{Spring Security}, associé à des jetons \textbf{JWT}, protège les API. Après une connexion réussie, un jeton d'accès est délivré ; il n'y a pas de jeton de rafraîchissement. Seul un utilisateur authentifié accède aux fonctions autorisées selon son rôle (gestionnaire ou administrateur).
+Spring Security~\cite{spring-security}, associé à des jetons JWT~\cite{jwt}, protège les API. Après une connexion réussie, un jeton d'accès est délivré ; il n'y a pas de jeton de rafraîchissement. Seul un utilisateur authentifié accède aux fonctions autorisées selon son rôle (gestionnaire ou administrateur).
 
 \begin{figure}[H]
   \centering
@@ -86,7 +84,7 @@ Le langage \textbf{Java 17} constitue le socle du backend. Les six microservices
   \label{fig:logo-postgresql}
 \end{figure}
 
-\textbf{PostgreSQL} est le système de gestion de bases de données relationnelles. Chaque microservice dispose de \textbf{sa propre base}, ce qui isole les données d'authentification, des candidats, des concours, des lieux, de la répartition et des envois de convocations.
+PostgreSQL~\cite{postgresql} est le système de gestion de bases de données relationnelles. Chaque microservice dispose de sa propre base, ce qui isole les données d'authentification, des candidats, des concours, des lieux, de la répartition et des envois de convocations.
 
 \begin{figure}[H]
   \centering
@@ -95,7 +93,7 @@ Le langage \textbf{Java 17} constitue le socle du backend. Les six microservices
   \label{fig:logo-flyway}
 \end{figure}
 
-\textbf{Flyway} gère les migrations de schéma : chaque service applique ses propres scripts à sa base PostgreSQL, de manière reproductible au démarrage.
+Flyway~\cite{flyway} gère les migrations de schéma : chaque service applique ses propres scripts à sa base PostgreSQL, de manière reproductible au démarrage.
 
 \begin{figure}[H]
   \centering
@@ -104,7 +102,7 @@ Le langage \textbf{Java 17} constitue le socle du backend. Les six microservices
   \label{fig:logo-apache-poi}
 \end{figure}
 
-\textbf{Apache POI} (version 5.3.0) est utilisé dans le service candidats pour lire les fichiers Excel (\texttt{.xlsx}) lors de l'import de la liste. Les candidats ne sont pas créés un par un par l'interface : l'entrée dans le système se fait par cet import.
+Apache POI~\cite{apache-poi} (version 5.3.0) est utilisé dans le service candidats pour lire les fichiers Excel (\texttt{.xlsx}) lors de l'import de la liste. Les candidats ne sont pas créés un par un par l'interface : l'entrée dans le système se fait par cet import.
 
 \begin{figure}[H]
   \centering
@@ -113,7 +111,7 @@ Le langage \textbf{Java 17} constitue le socle du backend. Les six microservices
   \label{fig:logo-openpdf}
 \end{figure}
 
-\textbf{OpenPDF} (version 1.3.30) génère, côté serveur, le PDF unitaire de convocation, à la demande, pour un candidat dont l'affectation est complète (centre, établissement, salle et place).
+OpenPDF~\cite{openpdf} (version 1.3.30) génère, côté serveur, le PDF unitaire de convocation, à la demande, pour un candidat dont l'affectation est complète (centre, établissement, salle et place).
 
 \begin{figure}[H]
   \centering
@@ -122,7 +120,7 @@ Le langage \textbf{Java 17} constitue le socle du backend. Les six microservices
   \label{fig:logo-spring-mail}
 \end{figure}
 
-\textbf{Spring Mail} envoie les convocations par courrier électronique, via le SMTP de \textbf{Gmail}. Sans identifiants de messagerie configurés, le service démarre mais l'envoi est refusé.
+Spring Mail~\cite{spring-mail} envoie les convocations par courrier électronique, via le SMTP de Gmail. Sans identifiants de messagerie configurés, le service démarre mais l'envoi est refusé.
 
 \subsection{Technologies côté client}
 
@@ -133,7 +131,7 @@ Le langage \textbf{Java 17} constitue le socle du backend. Les six microservices
   \label{fig:logo-react}
 \end{figure}
 
-\textbf{React 19}, avec \textbf{TypeScript}, constitue l'interface web : une application monopage qui présente les écrans de connexion, de tableau de bord, de candidats, de concours, de lieux, de répartition, de convocations et de gestion des comptes. La navigation entre ces pages est assurée par React Router.
+React 19~\cite{react}, avec TypeScript~\cite{typescript}, constitue l'interface web : une application monopage qui présente les écrans de connexion, de tableau de bord, de candidats, de concours, de lieux, de répartition, de convocations et de gestion des comptes. La navigation entre ces pages est assurée par React Router~\cite{react-router}.
 
 \begin{figure}[H]
   \centering
@@ -142,7 +140,7 @@ Le langage \textbf{Java 17} constitue le socle du backend. Les six microservices
   \label{fig:logo-typescript}
 \end{figure}
 
-\textbf{TypeScript} apporte un typage statique au code de l'interface. Il réduit les erreurs de contrat entre les pages React et les réponses JSON des API, notamment pour les concours, les candidats et les convocations.
+TypeScript apporte un typage statique au code de l'interface. Il réduit les erreurs de contrat entre les pages React et les réponses JSON des API, notamment pour les concours, les candidats et les convocations.
 
 \begin{figure}[H]
   \centering
@@ -151,7 +149,7 @@ Le langage \textbf{Java 17} constitue le socle du backend. Les six microservices
   \label{fig:logo-vite}
 \end{figure}
 
-\textbf{Vite 6} sert d'outil de construction et de serveur de développement du frontend. Il compile le projet React et TypeScript et fournit le bundle exécuté dans le navigateur.
+Vite 6~\cite{vite} sert d'outil de construction et de serveur de développement du frontend. Il compile le projet React et TypeScript et fournit le bundle exécuté dans le navigateur.
 
 \begin{figure}[H]
   \centering
@@ -160,7 +158,7 @@ Le langage \textbf{Java 17} constitue le socle du backend. Les six microservices
   \label{fig:logo-axios}
 \end{figure}
 
-\textbf{axios} est la bibliothèque HTTP du frontend. Toutes les requêtes de l'interface --- authentification, import Excel, concours, lieux, répartition, convocations --- sont envoyées à la passerelle par son intermédiaire.
+axios~\cite{axios} est la bibliothèque HTTP du frontend. Toutes les requêtes de l'interface --- authentification, import Excel, concours, lieux, répartition, convocations --- sont envoyées à la passerelle par son intermédiaire.
 
 \begin{figure}[H]
   \centering
@@ -169,7 +167,7 @@ Le langage \textbf{Java 17} constitue le socle du backend. Les six microservices
   \label{fig:logo-jspdf}
 \end{figure}
 
-\textbf{jsPDF} permet d'exporter, depuis le navigateur, des listes au format PDF (résultats de répartition et convocations). Ces exports de listes sont distincts du PDF unitaire de convocation produit par OpenPDF côté serveur.
+jsPDF~\cite{jspdf} permet d'exporter, depuis le navigateur, des listes au format PDF (résultats de répartition et convocations). Ces exports de listes sont distincts du PDF unitaire de convocation produit par OpenPDF côté serveur.
 
 \begin{figure}[H]
   \centering
@@ -178,7 +176,7 @@ Le langage \textbf{Java 17} constitue le socle du backend. Les six microservices
   \label{fig:logo-docx}
 \end{figure}
 
-La bibliothèque \textbf{docx} permet le même type d'export au format Word, toujours côté client, sur les pages de répartition et de convocations.
+La bibliothèque docx~\cite{docx} permet le même type d'export au format Word, toujours côté client, sur les pages de répartition et de convocations.
 
 \section{Architecture technique}
 
@@ -186,13 +184,13 @@ La plateforme est organisée en une application web, exécutée dans le navigate
 
 \subsection{Vue d'ensemble}
 
-L'utilisateur travaille dans le navigateur. L'interface React envoie ses requêtes HTTP à la \textbf{passerelle API} (Spring Cloud Gateway). Celle-ci n'héberge pas de données et ne vérifie pas le jeton : elle achemine chaque appel vers le microservice correspondant, d'après le chemin de l'URL, et \textbf{relaye} l'en-tête d'autorisation. Le service cible traite la demande, interroge sa base PostgreSQL le cas échéant, et renvoie la réponse par le même chemin.
+L'utilisateur accède à l'application via le navigateur. L'interface React envoie ses requêtes HTTP à la passerelle API (Spring Cloud Gateway). Celle-ci n'héberge pas de données et ne vérifie pas le jeton : elle achemine chaque appel vers le microservice correspondant, d'après le chemin de l'URL, et relaye l'en-tête d'autorisation. Le service cible traite la demande, interroge sa base PostgreSQL le cas échéant, et renvoie la réponse par le même chemin.
 
-Certains traitements croisent plusieurs domaines. La répartition consulte les concours, les salles et les candidats, puis enregistre les affectations. Les convocations sont \textbf{assemblées à la volée} à partir des candidats, des concours et des lieux. Ces appels entre services transmettent le jeton JWT déjà obtenu à la connexion.
+Certains traitements croisent plusieurs domaines. La répartition consulte les concours, les salles et les candidats, puis enregistre les affectations. Les convocations sont assemblées à la volée à partir des candidats, des concours et des lieux. Ces appels entre services transmettent le jeton JWT déjà obtenu à la connexion.
 
 \subsection{Microservices et persistance}
 
-Le backend comprend \textbf{six microservices}, plus la passerelle :
+Le backend comprend six microservices, plus la passerelle :
 
 \begin{table}[H]
 \centering
@@ -231,15 +229,15 @@ Assemblage des convocations, PDF unitaire, envoi par e-mail et historique des en
 \end{spacing}
 \end{table}
 
-Chaque microservice dispose de \textbf{sa propre base PostgreSQL}. Les liens entre domaines (numéro d'inscription, numéro de concours, identifiants de centre, d'établissement et de salle) sont des \textbf{références logiques}, contrôlées par appels HTTP, et non des clés étrangères partagées entre bases. Une convocation n'est pas une table : seul l'historique des envois est persisté.
+Chaque microservice dispose de sa propre base PostgreSQL. Les liens entre domaines (numéro d'inscription, numéro de concours, identifiants de centre, d'établissement et de salle) sont des références logiques, contrôlées par appels HTTP, et non des clés étrangères partagées entre bases. Une convocation n'est pas une table : seul l'historique des envois est persisté.
 
 \subsection{Authentification et rôles}
 
-L'authentification s'effectue par \texttt{POST /auth/login}, via la passerelle. En cas de succès, un \textbf{jeton d'accès JWT} est délivré ; il n'existe pas de jeton de rafraîchissement. L'interface le conserve dans le \texttt{sessionStorage} du navigateur et l'ajoute ensuite aux requêtes. \textbf{Chaque service ressource} vérifie le jeton et le rôle : le gestionnaire dispose des droits d'écriture métier ; l'administrateur consulte le métier en lecture seule et gère les comptes gestionnaires.
+L'authentification s'effectue par \texttt{POST /auth/login}, via la passerelle. En cas de succès, un jeton d'accès JWT est délivré ; il n'existe pas de jeton de rafraîchissement. L'interface le conserve dans le \texttt{sessionStorage} du navigateur et l'ajoute ensuite aux requêtes. Chaque service ressource vérifie le jeton et le rôle : le gestionnaire dispose des droits d'écriture métier ; l'administrateur consulte le métier en lecture seule et gère les comptes gestionnaires.
 
 \section{Interfaces de l'application}
 
-Cette section illustre l'application réalisée, à l'aide de captures correspondant au parcours du \textbf{gestionnaire} : authentification, tableau de bord, puis les modules métier. Les boutons d'écriture (import, création, lancement de la répartition) n'apparaissent que pour ce rôle.
+Cette section illustre l'application réalisée, à l'aide de captures correspondant au parcours du gestionnaire : authentification, tableau de bord, puis les modules métier. Les boutons d'écriture (import, création, lancement de la répartition) n'apparaissent que pour ce rôle.
 
 \subsection{Authentification}
 
@@ -250,7 +248,7 @@ Cette section illustre l'application réalisée, à l'aide de captures correspon
   \label{fig:screenshot-connexion}
 \end{figure}
 
-La figure présente l'écran d'accès à l'application. Le bandeau affiche le logo du \textbf{Ministère de l'Économie et des Finances}, le titre «~Connexion~» et le sous-titre «~Gestion des candidatures --- authentification~». Le gestionnaire saisit son nom d'utilisateur et son mot de passe, puis valide par «~Se connecter~». Aucun autre écran n'est accessible tant que l'authentification n'a pas abouti.
+La figure~\ref{fig:screenshot-connexion} présente l'écran d'accès à l'application. Le bandeau affiche le logo du Ministère de l'Économie et des Finances, le titre «~Connexion~» et le sous-titre «~Gestion des candidatures --- authentification~». Le gestionnaire saisit son nom d'utilisateur et son mot de passe, puis valide par «~Se connecter~». Aucun autre écran n'est accessible tant que l'authentification n'a pas abouti.
 
 \subsection{Tableau de bord}
 
@@ -261,7 +259,7 @@ La figure présente l'écran d'accès à l'application. Le bandeau affiche le lo
   \label{fig:screenshot-dashboard}
 \end{figure}
 
-La figure présente l'écran d'accueil après connexion. L'en-tête reprend le logo du ministère, les onglets (Tableau de bord, Candidats, Concours, Lieux, Répartition, Convocations) et le rôle \textbf{Gestionnaire}, avec le bouton «~Déconnexion~». Le gestionnaire dispose d'un bouton «~Actualiser~». Six indicateurs résument l'état : 104 candidats inscrits, 104 affectés, 6 concours, 4 centres, une capacité de 720 places et 104 convocations (dont 100 envoyées et 4 échecs). La barre «~Taux d'affectation global~» indique que les 104 candidats ont un centre, un établissement, une salle et une place. La colonne de gauche détaille les effectifs par concours ; celle de droite rappelle la dernière répartition, au statut «~Terminée~», déclenchée par le gestionnaire.
+La figure~\ref{fig:screenshot-dashboard} présente l'écran d'accueil après connexion. L'en-tête reprend le logo du ministère, les onglets (Tableau de bord, Candidats, Concours, Lieux, Répartition, Convocations) et le rôle Gestionnaire, avec le bouton «~Déconnexion~». Le gestionnaire dispose d'un bouton «~Actualiser~». Six indicateurs résument l'état : 104 candidats inscrits, 104 affectés, 6 concours, 4 centres, une capacité de 720 places et 104 convocations (dont 100 envoyées et 4 échecs). La barre «~Taux d'affectation global~» indique que les 104 candidats ont un centre, un établissement, une salle et une place. La colonne de gauche détaille les effectifs par concours ; celle de droite rappelle la dernière répartition, au statut «~Terminée~», déclenchée par le gestionnaire.
 
 \subsection{Gestion des candidats}
 
@@ -272,7 +270,7 @@ La figure présente l'écran d'accueil après connexion. L'en-tête reprend le l
   \label{fig:screenshot-candidats}
 \end{figure}
 
-La figure présente l'écran «~Liste des candidats~». Le gestionnaire peut \textbf{importer un fichier Excel} ou \textbf{réinitialiser la liste} ; il n'existe pas de création unitaire de candidat. Des filtres permettent de rechercher par nom, prénom, CIN ou numéro d'inscription, et de restreindre par ville ou par concours. Chaque fiche affiche l'identité, les coordonnées, la ville, le concours, puis l'affectation (centre, établissement, salle et place). Les actions «~Modifier~» et «~Supprimer~» figurent en bas de fiche.
+La figure~\ref{fig:screenshot-candidats} présente l'écran «~Liste des candidats~». Le gestionnaire peut importer un fichier Excel ou réinitialiser la liste ; il n'existe pas de création unitaire de candidat. Des filtres permettent de rechercher par nom, prénom, CIN ou numéro d'inscription, et de restreindre par ville ou par concours. Chaque fiche affiche l'identité, les coordonnées, la ville, le concours, puis l'affectation (centre, établissement, salle et place). Les actions «~Modifier~» et «~Supprimer~» figurent en bas de fiche.
 
 \subsection{Gestion des concours}
 
@@ -283,7 +281,7 @@ La figure présente l'écran «~Liste des candidats~». Le gestionnaire peut \te
   \label{fig:screenshot-concours-liste}
 \end{figure}
 
-La figure présente l'écran «~Concours~». Le gestionnaire actualise la liste ou ouvre la création par «~+ Nouveau concours~». Trois indicateurs donnent le nombre de concours enregistrés, les examens à venir et les liens vers les centres. Chaque carte porte le nom, le numéro, la date et l'heure d'examen, les \textbf{centres assignés} (Tanger, Marrakech, Casablanca, Rabat sur cette vue) et les boutons «~Modifier~» et «~Supprimer~».
+La figure~\ref{fig:screenshot-concours-liste} présente l'écran «~Concours~». Le gestionnaire actualise la liste ou ouvre la création par «~+ Nouveau concours~». Trois indicateurs donnent le nombre de concours enregistrés, les examens à venir et les liens vers les centres. Chaque carte porte le nom, le numéro, la date et l'heure d'examen, les centres assignés (Tanger, Marrakech, Casablanca, Rabat sur cette vue) et les boutons «~Modifier~» et «~Supprimer~».
 
 \begin{figure}[H]
   \centering
@@ -292,7 +290,7 @@ La figure présente l'écran «~Concours~». Le gestionnaire actualise la liste 
   \label{fig:screenshot-concours-creation}
 \end{figure}
 
-La figure présente la fenêtre ouverte par «~+ Nouveau concours~». Le gestionnaire renseigne le nom, le numéro, la date et l'heure d'examen, puis sélectionne \textbf{au moins un centre} parmi ceux déjà créés dans les lieux. Il peut ajouter d'autres centres. «~Enregistrer~» envoie la création ; «~Annuler~» ferme la fenêtre sans enregistrement.
+La figure~\ref{fig:screenshot-concours-creation} présente la fenêtre ouverte par «~+ Nouveau concours~». Le gestionnaire renseigne le nom, le numéro, la date et l'heure d'examen, puis sélectionne au moins un centre parmi ceux déjà créés dans les lieux. Il peut ajouter d'autres centres. «~Enregistrer~» envoie la création ; «~Annuler~» ferme la fenêtre sans enregistrement.
 
 \subsection{Gestion des lieux}
 
@@ -303,7 +301,7 @@ La figure présente la fenêtre ouverte par «~+ Nouveau concours~». Le gestion
   \label{fig:screenshot-lieux}
 \end{figure}
 
-La figure présente l'écran «~Lieux~». À gauche, la liste des \textbf{centres} (Casablanca, Marrakech, Rabat, Tanger) ; Casablanca est sélectionné. Le détail montre la hiérarchie \textbf{centre $\rightarrow$ établissement $\rightarrow$ salles} : l'établissement Ibn Tofail et des salles (A, B, C) avec leur capacité et le concours associé. Le gestionnaire dispose des boutons «~+ Nouveau centre~», «~+ Établissement~», «~+ Salle~», ainsi que «~Modifier~» et «~Supprimer~» à chaque niveau.
+La figure~\ref{fig:screenshot-lieux} présente l'écran «~Lieux~». À gauche, la liste des centres (Casablanca, Marrakech, Rabat, Tanger) ; Casablanca est sélectionné. Le détail montre la hiérarchie centre $\rightarrow$ établissement $\rightarrow$ salles : l'établissement Ibn Tofail et des salles (A, B, C) avec leur capacité et le concours associé. Le gestionnaire dispose des boutons «~+ Nouveau centre~», «~+ Établissement~», «~+ Salle~», ainsi que «~Modifier~» et «~Supprimer~» à chaque niveau.
 
 \subsection{Répartition automatique}
 
@@ -314,7 +312,9 @@ La figure présente l'écran «~Lieux~». À gauche, la liste des \textbf{centre
   \label{fig:screenshot-repartition-lancement}
 \end{figure}
 
-La figure présente l'écran «~Répartition~». Le gestionnaire peut actualiser, \textbf{réinitialiser} les sièges (sans vider la liste des candidats) ou \textbf{lancer la répartition}. Après le clic sur «~Lancer la répartition~», une confirmation demande s'il faut exécuter une nouvelle répartition automatique de tous les candidats. En arrière-plan, l'historique des exécutions affiche le statut («~Terminée~» ou «~Terminée avec alertes~»), le taux d'affectation et les boutons «~Voir la synthèse~» et «~Supprimer~».
+La figure~\ref{fig:screenshot-repartition-lancement} présente l'écran «~Répartition~». Le gestionnaire peut actualiser, réinitialiser les sièges (sans vider la liste des candidats) ou lancer la répartition. Après le clic sur «~Lancer la répartition~», une confirmation demande s'il faut exécuter une nouvelle répartition automatique de tous les candidats. En arrière-plan, l'historique des exécutions affiche le statut («~Terminée~» ou «~Terminée avec alertes~»), le taux d'affectation et les boutons «~Voir la synthèse~» et «~Supprimer~».
+
+Le lancement déclenche une redistribution complète. Les candidats sont parcourus dans l'ordre du numéro d'inscription. Le système les place d'abord par concours, puis par centre. Par concours, un candidat n'est jamais envoyé dans une salle d'un autre concours : seules les salles déjà liées à son numéro de concours --- et donc les centres qui les hébergent --- forment l'ensemble des places possibles. Par centre, ces centres sont classés selon la ville du candidat. Le système retient en priorité un centre de la même ville, puis, s'il en existe un pour ce concours, un centre de la même région administrative, enfin le centre le plus proche géographiquement. Dans le centre retenu, une place est réservée dans la première salle qui a encore de la capacité. Si toutes les salles de ce centre sont pleines, le système passe au centre suivant du même concours, toujours selon cet ordre de proximité. L'affectation inscrite associe au candidat un centre, un établissement, une salle et un numéro de place. Lorsqu'aucune place n'est libre, que le concours n'a pas de salle, qu'il est inconnu ou que la ville du candidat n'est pas reconnue, le candidat n'est pas affecté et une alerte est enregistrée. Les candidats restés sans place voient leur ancienne affectation remise à zéro, afin que le résultat de l'exécution reste cohérent.
 
 \begin{figure}[H]
   \centering
@@ -323,7 +323,7 @@ La figure présente l'écran «~Répartition~». Le gestionnaire peut actualiser
   \label{fig:screenshot-repartition-synthese}
 \end{figure}
 
-La figure présente la fenêtre «~Synthèse · exécution \#17~», ouverte depuis «~Voir la synthèse~». L'exécution, déclenchée par le gestionnaire, est au statut «~Terminée~» : 104 candidats, 104 affectés, aucune alerte, taux d'affectation de 100~\%. Le tableau liste, pour chaque candidat, la ville, le concours, le centre, l'établissement, la salle et la place. Des filtres par centre et par concours, ainsi que les boutons \textbf{Word} et \textbf{PDF}, permettent d'exporter la liste \textbf{depuis le navigateur} (distinct du PDF unitaire de convocation produit côté serveur).
+La figure~\ref{fig:screenshot-repartition-synthese} présente la fenêtre «~Synthèse · exécution \#17~», ouverte depuis «~Voir la synthèse~». L'exécution, déclenchée par le gestionnaire, est au statut «~Terminée~» : 104 candidats, 104 affectés, aucune alerte, taux d'affectation de 100~\%. Le tableau liste, pour chaque candidat, la ville, le concours, le centre, l'établissement, la salle et la place. Des filtres par centre et par concours, ainsi que les boutons Word et PDF, permettent d'exporter la liste depuis le navigateur (distinct du PDF unitaire de convocation produit côté serveur).
 
 \begin{figure}[H]
   \centering
@@ -332,7 +332,7 @@ La figure présente la fenêtre «~Synthèse · exécution \#17~», ouverte depu
   \label{fig:screenshot-repartition-export}
 \end{figure}
 
-La figure présente à nouveau la synthèse de l'exécution n\textsuperscript{o}~17, après filtrage. Le gestionnaire a choisi le centre \textbf{Casablanca} ; le compteur indique \textbf{24 affectations sur 104}. Le tableau ne retient que les lignes de ce centre (établissement, salle, place). Deux groupes d'export apparaissent : \textbf{Exporter la sélection} (Word ou PDF, limité au filtre) et \textbf{Toutes les affectations} (liste complète). Le fichier téléchargé, \texttt{repartition-17-filtre.pdf}, correspond à la sélection. Cet export est produit \textbf{dans le navigateur} ; il ne se confond pas avec le PDF unitaire de convocation généré côté serveur par OpenPDF.
+La figure~\ref{fig:screenshot-repartition-export} présente à nouveau la synthèse de l'exécution n\textsuperscript{o}~17, après filtrage. Le gestionnaire a choisi le centre Casablanca ; le compteur indique 24 affectations sur 104. Le tableau ne retient que les lignes de ce centre (établissement, salle, place). Deux groupes d'export apparaissent : Exporter la sélection (Word ou PDF, limité au filtre) et Toutes les affectations (liste complète). Le fichier téléchargé, \texttt{repartition-17-filtre.pdf}, correspond à la sélection. Cet export est produit dans le navigateur ; il ne se confond pas avec le PDF unitaire de convocation généré côté serveur par OpenPDF.
 
 \subsection{Gestion des convocations}
 
@@ -343,7 +343,7 @@ La figure présente à nouveau la synthèse de l'exécution n\textsuperscript{o}
   \label{fig:screenshot-convocations}
 \end{figure}
 
-La figure présente l'écran «~Convocations~». L'en-tête identifie le \textbf{gestionnaire}. Celui-ci peut actualiser la page ou cliquer sur \textbf{Envoyer toutes les convocations}. Quatre indicateurs résument l'état : 104 convocations prêtes (candidats affectés), 104 avec e-mail, 0 sans e-mail, 100 envois réussis (4 échecs). Le texte précise qu'une convocation est assemblée pour chaque candidat dont l'affectation est complète ; il n'y a pas de bouton «~Générer~». Des filtres par centre et par concours, une barre \textbf{Exporter la liste} (Word et PDF) et une grille de cartes (identité, concours, centre, établissement, salle, place, date, e-mail, \textbf{Voir le PDF}) composent le reste de l'écran.
+La figure~\ref{fig:screenshot-convocations} présente l'écran «~Convocations~». L'en-tête identifie le gestionnaire. Celui-ci peut actualiser la page ou cliquer sur Envoyer toutes les convocations. Quatre indicateurs résument l'état : 104 convocations prêtes (candidats affectés), 104 avec e-mail, 0 sans e-mail, 100 envois réussis (4 échecs). Le texte précise qu'une convocation est assemblée pour chaque candidat dont l'affectation est complète ; il n'y a pas de bouton «~Générer~». Des filtres par centre et par concours, une barre Exporter la liste (Word et PDF) et une grille de cartes (identité, concours, centre, établissement, salle, place, date, e-mail, Voir le PDF) composent le reste de l'écran.
 
 \begin{figure}[H]
   \centering
@@ -352,7 +352,7 @@ La figure présente l'écran «~Convocations~». L'en-tête identifie le \textbf
   \label{fig:screenshot-convocation-pdf}
 \end{figure}
 
-La figure présente le document obtenu par \textbf{Voir le PDF} pour un candidat. L'en-tête indique «~Royaume du Maroc --- Organisation des concours~», le titre \textbf{CONVOCATION À L'EXAMEN} et le nom du concours. Le corps convoque le candidat aux date, lieu et place indiqués, puis un tableau reprend le nom, le numéro d'inscription, le concours, la date et l'heure, le centre, l'établissement, la salle et la place. Un encadré rappelle de se présenter en avance, muni de la convocation et d'une pièce d'identité. Ce fichier est produit \textbf{côté serveur} par OpenPDF, à la demande, pour un candidat déjà affecté.
+La figure~\ref{fig:screenshot-convocation-pdf} présente le document obtenu par Voir le PDF pour un candidat. L'en-tête indique «~Royaume du Maroc --- Organisation des concours~», le titre CONVOCATION À L'EXAMEN et le nom du concours. Le corps convoque le candidat aux date, lieu et place indiqués, puis un tableau reprend le nom, le numéro d'inscription, le concours, la date et l'heure, le centre, l'établissement, la salle et la place. Un encadré rappelle de se présenter en avance, muni de la convocation et d'une pièce d'identité. Ce fichier est produit côté serveur par OpenPDF, à la demande, pour un candidat déjà affecté.
 
 \begin{figure}[H]
   \centering
@@ -361,7 +361,7 @@ La figure présente le document obtenu par \textbf{Voir le PDF} pour un candidat
   \label{fig:screenshot-convocations-export}
 \end{figure}
 
-La figure présente le même écran, après un clic sur \textbf{PDF} dans «~Exporter la liste~». Le navigateur télécharge le fichier \texttt{convocations-complet.pdf}. Contrairement à la figure précédente, il s'agit d'une \textbf{liste} de convocations, générée \textbf{dans le navigateur}, et non du document unitaire OpenPDF.
+La figure~\ref{fig:screenshot-convocations-export} présente le même écran, après un clic sur PDF dans «~Exporter la liste~». Le navigateur télécharge le fichier \texttt{convocations-complet.pdf}. Contrairement à la figure~\ref{fig:screenshot-convocation-pdf}, il s'agit d'une liste de convocations, générée dans le navigateur, et non du document unitaire OpenPDF.
 
 \begin{figure}[H]
   \centering
@@ -370,7 +370,7 @@ La figure présente le même écran, après un clic sur \textbf{PDF} dans «~Exp
   \label{fig:screenshot-convocations-liste-pdf}
 \end{figure}
 
-La figure présente le contenu de cet export. Le titre est \textbf{Liste des convocations} ; l'en-tête indique la date d'export et le périmètre (ici : toutes les convocations, 104). Un tableau à colonnes (candidat, numéro d'inscription, concours, centre, établissement, salle, date et heure, place, e-mail) occupe le corps du document. Ce PDF de liste est distinct de la convocation nominative de la figure~\ref{fig:screenshot-convocation-pdf}.
+La figure~\ref{fig:screenshot-convocations-liste-pdf} présente le contenu de cet export. Le titre est Liste des convocations ; l'en-tête indique la date d'export et le périmètre (ici : toutes les convocations, 104). Un tableau à colonnes (candidat, numéro d'inscription, concours, centre, établissement, salle, date et heure, place, e-mail) occupe le corps du document. Ce PDF de liste est distinct de la convocation nominative de la figure~\ref{fig:screenshot-convocation-pdf}.
 
 \begin{figure}[H]
   \centering
@@ -379,7 +379,7 @@ La figure présente le contenu de cet export. Le titre est \textbf{Liste des con
   \label{fig:screenshot-convocations-envoi}
 \end{figure}
 
-La figure présente la fenêtre ouverte après \textbf{Envoyer toutes les convocations}. Le titre est «~Résultat de l'envoi~», le sous-titre «~Récapitulatif de l'envoi groupé par e-mail~». Trois totaux (Total, Envoyés, Échecs) résument l'opération ; sur cette capture, 104 envois aboutis, aucun échec. La liste détaille chaque destinataire (nom, adresse, statut \textbf{Envoyé}). «~Fermer~» revient à la page des convocations.
+La figure~\ref{fig:screenshot-convocations-envoi} présente la fenêtre ouverte après Envoyer toutes les convocations. Le titre est «~Résultat de l'envoi~», le sous-titre «~Récapitulatif de l'envoi groupé par e-mail~». Trois totaux (Total, Envoyés, Échecs) résument l'opération ; sur cette capture, 104 envois aboutis, aucun échec. La liste détaille chaque destinataire (nom, adresse, statut Envoyé). «~Fermer~» revient à la page des convocations.
 
 \subsection{Vue administrateur (lecture seule sur le métier)}
 
@@ -390,7 +390,7 @@ La figure présente la fenêtre ouverte après \textbf{Envoyer toutes les convoc
   \label{fig:screenshot-admin-candidats}
 \end{figure}
 
-La figure présente le même écran «~Liste des candidats~», ouvert avec le compte \textbf{administrateur}. L'en-tête affiche le logo du ministère, l'onglet \textbf{Gestionnaires} (absent chez le gestionnaire) et la pastille \textbf{Administrateur · lecture seule}. Les filtres (recherche, ville, concours) et les fiches restent visibles, y compris l'affectation. En revanche, les boutons \textbf{Importer fichier Excel}, \textbf{Réinitialiser la liste}, \textbf{Modifier} et \textbf{Supprimer} n'apparaissent pas : l'administrateur consulte, il ne modifie pas les candidatures.
+La figure~\ref{fig:screenshot-admin-candidats} présente le même écran «~Liste des candidats~», ouvert avec le compte administrateur. L'en-tête affiche le logo du ministère, l'onglet Gestionnaires (absent chez le gestionnaire) et la pastille Administrateur · lecture seule. Les filtres (recherche, ville, concours) et les fiches restent visibles, y compris l'affectation. En revanche, les boutons Importer fichier Excel, Réinitialiser la liste, Modifier et Supprimer n'apparaissent pas : l'administrateur consulte, il ne modifie pas les candidatures.
 
 \begin{figure}[H]
   \centering
@@ -399,7 +399,7 @@ La figure présente le même écran «~Liste des candidats~», ouvert avec le co
   \label{fig:screenshot-admin-concours}
 \end{figure}
 
-La figure présente l'écran «~Concours~» pour le même rôle. Le bouton «~Actualiser~» est présent ; «~+ Nouveau concours~» n'apparaît pas, pas plus que «~Modifier~» ou «~Supprimer~» sur les cartes. L'administrateur voit le nom, le numéro, la date et les centres assignés, sans pouvoir créer ni altérer un concours.
+La figure~\ref{fig:screenshot-admin-concours} présente l'écran «~Concours~» pour le même rôle. Le bouton «~Actualiser~» est présent ; «~+ Nouveau concours~» n'apparaît pas, pas plus que «~Modifier~» ou «~Supprimer~» sur les cartes. L'administrateur voit le nom, le numéro, la date et les centres assignés, sans pouvoir créer ni altérer un concours.
 
 \subsection{Gestion des comptes gestionnaires}
 
@@ -410,7 +410,7 @@ La figure présente l'écran «~Concours~» pour le même rôle. Le bouton «~Ac
   \label{fig:screenshot-gestionnaires-liste}
 \end{figure}
 
-La figure présente l'écran réservé à l'administrateur : «~Liste des gestionnaires~». Le tableau indique le nom d'utilisateur, le statut (ici \textbf{Actif}), la date de création et les actions \textbf{Modifier} et \textbf{Supprimer}. Le bouton \textbf{Nouveau gestionnaire} ouvre la création d'un compte. Seul l'administrateur accède à cette page ; le gestionnaire ne la voit pas dans le menu.
+La figure~\ref{fig:screenshot-gestionnaires-liste} présente l'écran réservé à l'administrateur : «~Liste des gestionnaires~». Le tableau indique le nom d'utilisateur, le statut (ici Actif), la date de création et les actions Modifier et Supprimer. Le bouton Nouveau gestionnaire ouvre la création d'un compte. Seul l'administrateur accède à cette page ; le gestionnaire ne la voit pas dans le menu.
 
 \begin{figure}[H]
   \centering
@@ -419,7 +419,7 @@ La figure présente l'écran réservé à l'administrateur : «~Liste des gestio
   \label{fig:screenshot-gestionnaires-creation}
 \end{figure}
 
-La figure présente la fenêtre ouverte par «~Nouveau gestionnaire~». L'administrateur saisit un nom d'utilisateur et un mot de passe. Une mention indique que le rôle est fixé à \texttt{GESTIONNAIRE} et que le mot de passe doit compter au moins huit caractères. «~Enregistrer~» crée le compte ; «~Annuler~» ferme la fenêtre sans enregistrement.
+La figure~\ref{fig:screenshot-gestionnaires-creation} présente la fenêtre ouverte par «~Nouveau gestionnaire~». L'administrateur saisit un nom d'utilisateur et un mot de passe. Une mention indique que le rôle est fixé à \texttt{GESTIONNAIRE} et que le mot de passe doit compter au moins huit caractères. «~Enregistrer~» crée le compte ; «~Annuler~» ferme la fenêtre sans enregistrement.
 
 \begin{figure}[H]
   \centering
@@ -428,7 +428,7 @@ La figure présente la fenêtre ouverte par «~Nouveau gestionnaire~». L'admini
   \label{fig:screenshot-gestionnaires-modification}
 \end{figure}
 
-La figure présente la fenêtre ouverte par «~Modifier~». Le nom d'utilisateur peut être mis à jour. Le champ «~Nouveau mot de passe~» peut rester vide pour conserver le mot de passe actuel. La case \textbf{Compte actif (peut se connecter)} permet d'activer ou de désactiver l'accès. Le rôle demeure \texttt{GESTIONNAIRE}. «~Enregistrer~» valide les changements.
+La figure~\ref{fig:screenshot-gestionnaires-modification} présente la fenêtre ouverte par «~Modifier~». Le nom d'utilisateur peut être mis à jour. Le champ «~Nouveau mot de passe~» peut rester vide pour conserver le mot de passe actuel. La case Compte actif (peut se connecter) permet d'activer ou de désactiver l'accès. Le rôle demeure \texttt{GESTIONNAIRE}. «~Enregistrer~» valide les changements.
 
 \section{Conclusion}
 

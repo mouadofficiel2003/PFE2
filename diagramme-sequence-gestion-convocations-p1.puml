@@ -1,80 +1,84 @@
-@startuml diagramme-sequence-gestion-convocations-1
+@startuml diagramme-sequence-gestion-convocations-p1
 !theme plain
 skinparam shadowing false
-skinparam roundcorner 8
-skinparam dpi 150
+skinparam roundcorner 10
+skinparam dpi 180
 skinparam sequenceMessageAlign center
-skinparam responseMessageBelowArrow true
+skinparam responseMessageBelowArrow false
 
 <style>
 title {
-  FontSize 26
+  FontSize 32
   FontStyle bold
+  Margin 8
 }
 document {
-  FontSize 22
+  FontSize 26
 }
 sequenceDiagram {
   actor {
-    FontSize 22
+    FontSize 28
+    FontStyle bold
+    Padding 8
   }
   participant {
-    FontSize 20
+    FontSize 26
+    FontStyle bold
+    Padding 8
   }
   database {
-    FontSize 20
+    FontSize 26
+    FontStyle bold
+    Padding 8
   }
   arrow {
-    FontSize 20
-    LineThickness 1.5
+    FontSize 26
+    LineThickness 2
   }
   divider {
-    FontSize 20
+    FontSize 24
+    FontStyle bold
   }
   group {
-    FontSize 18
-  }
-  note {
-    FontSize 18
+    FontSize 22
   }
   lifeLine {
-    LineThickness 1.5
+    LineThickness 2
   }
 }
 </style>
 
-title Dématérialisation des candidatures — Gestion des convocations (1/3)\nConsulter : assemblage de la liste
+title Gestion des convocations (1/3) — Consulter la liste
 
-participant "Service Convocations\n(Spring Boot)" as Conv
-participant "Service Candidats\n(Spring Boot)" as Cand
-participant "Service Concours\n(Spring Boot)" as Conc
-participant "Service Lieux\n(Spring Boot)" as Lieux
+actor "Gestionnaire" as Gest
+participant "Application\nweb (React)" as React
+participant "Passerelle" as GW
+participant "Convocations" as Conv
+participant "Services\nmétier" as Metier
 database "PostgreSQL" as DB
 
 == Consulter les convocations ==
-note over Conv, Lieux
-  Le gestionnaire ouvre la page « Convocations ».
-  GET /api/convocations arrive au service
-  via l'application web et la passerelle
-  (Authorization: Bearer <jeton>).
-end note
 
-Conv -> Cand : GET /api/candidats
-Cand --> Conv : 200 OK { candidats }
-Conv -> Conc : GET /api/concours
-Conc --> Conv : 200 OK { concours }
+Gest -> React : Ouvre la page « Convocations »
+React -> GW : GET /api/convocations
+GW -> Conv : Transmet
+Conv -> Metier : GET /api/candidats
+Metier --> Conv : 200 OK { candidats }
+Conv -> Metier : GET /api/concours
+Metier --> Conv : 200 OK { concours }
 loop Pour chaque concours des candidats affectés
-  Conv -> Lieux : GET /api/salles?numeroConcours=
-  Lieux --> Conv : 200 OK { salles }
+  Conv -> Metier : GET /api/salles\n?numeroConcours=
+  Metier --> Conv : 200 OK { salles }
 end
 Conv -> Conv : Ne retient que les candidats\navec affectation complète
+Conv --> GW : 200 OK { convocations }
+GW --> React : 200 OK
+React -> GW : GET /api/convocations/envois
+GW -> Conv : Transmet
 Conv -> DB : SELECT convocation_envoi
 DB --> Conv : Historique des envois
-
-note over Conv, DB
-  Le service renvoie { convocations } puis { envois }.
-  L'écran affiche la liste et l'historique.
-  Le jeton JWT est relayé vers candidats, concours et lieux.
-end note
+Conv --> GW : 200 OK { envois }
+GW --> React : 200 OK
+React --> Gest : Affiche la liste et l'historique
 
 @enduml

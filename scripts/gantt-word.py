@@ -1,6 +1,7 @@
-"""Gantt plein (barre continue) pour insertion Word."""
+"""Gantt plein (barre continue) pour insertion Word / rapport LaTeX."""
 from __future__ import annotations
 
+import shutil
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -11,14 +12,27 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 STAGE_START = date(2026, 3, 6)
-STAGE_END = date(2026, 6, 6)
+STAGE_END = date(2026, 8, 17)
 
 PHASES = [
     ("Cahier des charges", date(2026, 3, 6), date(2026, 3, 19), "#C4A574", "2 sem."),
-    ("Conception UML", date(2026, 3, 20), date(2026, 4, 19), "#5B9BD5", "1 mois"),
-    ("Réalisation", date(2026, 4, 20), date(2026, 5, 24), "#70AD47", "5 sem."),
-    ("Tests", date(2026, 5, 25), date(2026, 6, 6), "#ED7D31", "2 sem."),
+    ("Conception UML", date(2026, 3, 20), date(2026, 4, 26), "#5B9BD5", "1 mois 1 sem."),
+    ("Réalisation", date(2026, 4, 27), date(2026, 7, 26), "#70AD47", "3 mois"),
+    ("Tests", date(2026, 7, 27), date(2026, 8, 17), "#ED7D31", "3 sem."),
 ]
+
+MONTH_NAMES = {
+    3: "Mars",
+    4: "Avril",
+    5: "Mai",
+    6: "Juin",
+    7: "Juillet",
+    8: "Août",
+}
+
+
+def total_days() -> int:
+    return (STAGE_END - STAGE_START).days + 1
 
 
 def weeks() -> list[tuple[int, date, date]]:
@@ -33,23 +47,11 @@ def weeks() -> list[tuple[int, date, date]]:
     return items
 
 
-def overlap_days(a1: date, a2: date, b1: date, b2: date) -> int:
-    start = max(a1, b1)
-    end = min(a2, b2)
-    if end < start:
-        return 0
-    return (end - start).days + 1
-
-
-def phase_for_week(wstart: date, wend: date) -> int | None:
-    best_i = None
-    best = 0
-    for i, (_n, p1, p2, _c, _d) in enumerate(PHASES):
-        o = overlap_days(wstart, wend, p1, p2)
-        if o > best:
-            best = o
-            best_i = i
-    return best_i
+def phase_for_date(d: date) -> int | None:
+    for i, (_n, p1, p2, _c, _dur) in enumerate(PHASES):
+        if p1 <= d <= p2:
+            return i
+    return None
 
 
 def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
@@ -63,87 +65,103 @@ def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
 def draw_png() -> None:
     ws = weeks()
     n_weeks = len(ws)
-    left = 28
-    right_m = 28
-    col_w = 88
-    bar_h = 120
-    header_y = 108
-    month_h = 36
-    week_h = 30
+    days = total_days()
+    left = 32
+    right_m = 32
+    px_per_day = 10
+    chart_w = days * px_per_day
+    bar_h = 128
+    header_y = 112
+    month_h = 38
+    week_h = 32
     week_y = header_y + month_h
     bar_y = week_y + week_h
-    table_y = bar_y + bar_h + 32
-    row_h = 44
-    width = left + n_weeks * col_w + right_m
-    height = table_y + 5 * row_h + 24
-    chart_right = left + n_weeks * col_w
+    table_y = bar_y + bar_h + 36
+    row_h = 46
+    width = left + chart_w + right_m
+    height = table_y + 5 * row_h + 28
+    chart_right = left + chart_w
+
+    def x_at(d: date, end_of_day: bool = False) -> float:
+        offset = (d - STAGE_START).days + (1 if end_of_day else 0)
+        return left + chart_w * offset / days
 
     img = Image.new("RGB", (width, height), "#ffffff")
     draw = ImageDraw.Draw(img)
-    f_title = font(34, True)
-    f_sub = font(17)
-    f_month = font(16, True)
-    f_week = font(13, True)
-    f_bar = font(17, True)
-    f_table = font(16, True)
-    f_small = font(15)
+    f_title = font(36, True)
+    f_sub = font(18)
+    f_month = font(17, True)
+    f_week = font(14, True)
+    f_bar = font(18, True)
+    f_table = font(17, True)
+    f_small = font(16)
 
     title = "Diagramme de Gantt du projet"
     bbox = draw.textbbox((0, 0), title, font=f_title)
-    draw.text(((width - (bbox[2] - bbox[0])) / 2, 18), title, fill="#1f1f1f", font=f_title)
-    sub = "Stage du 6 mars au 6 juin 2026"
+    draw.text(((width - (bbox[2] - bbox[0])) / 2, 16), title, fill="#1f1f1f", font=f_title)
+    sub = "Stage du 6 mars au 17 août 2026"
     bbox = draw.textbbox((0, 0), sub, font=f_sub)
     draw.text(((width - (bbox[2] - bbox[0])) / 2, 62), sub, fill="#555555", font=f_sub)
 
-    month_names = {3: "Mars", 4: "Avril", 5: "Mai", 6: "Juin"}
-    i = 0
-    while i < n_weeks:
-        m = ws[i][1].month
-        j = i
-        while j < n_weeks and ws[j][1].month == m:
-            j += 1
-        x1 = left + i * col_w
-        x2 = left + j * col_w
+    d = STAGE_START
+    while d <= STAGE_END:
+        month = d.month
+        if d.month == 12:
+            last = date(d.year, 12, 31)
+        else:
+            last = date(d.year, d.month + 1, 1) - timedelta(days=1)
+        last = min(last, STAGE_END)
+        x1 = x_at(d)
+        x2 = x_at(last, end_of_day=True)
         draw.rectangle([x1, header_y, x2, week_y], fill="#2F4F6F")
-        label = month_names[m]
+        label = MONTH_NAMES[month]
         bb = draw.textbbox((0, 0), label, font=f_month)
-        draw.text((x1 + (x2 - x1 - (bb[2] - bb[0])) / 2, header_y + 7), label, fill="white", font=f_month)
-        i = j
+        draw.text((x1 + (x2 - x1 - (bb[2] - bb[0])) / 2, header_y + 8), label, fill="white", font=f_month)
+        d = last + timedelta(days=1)
 
     for k, (_n, w1, w2) in enumerate(ws):
-        x = left + k * col_w
-        draw.rectangle([x, week_y, x + col_w, bar_y], fill="#3E5E7E")
+        x1 = x_at(w1)
+        x2 = x_at(w2, end_of_day=True)
+        draw.rectangle([x1, week_y, x2, bar_y], fill="#3E5E7E")
         label = f"S{k + 1}"
         bb = draw.textbbox((0, 0), label, font=f_week)
-        draw.text((x + (col_w - (bb[2] - bb[0])) / 2, week_y + 6), label, fill="white", font=f_week)
+        if (x2 - x1) >= (bb[2] - bb[0] + 4):
+            draw.text((x1 + (x2 - x1 - (bb[2] - bb[0])) / 2, week_y + 6), label, fill="white", font=f_week)
 
-    for k, (_n, w1, w2) in enumerate(ws):
-        x = left + k * col_w
-        idx = phase_for_week(w1, w2)
+    # Continuous phase bar, day by day (handles mid-week transitions).
+    d = STAGE_START
+    while d <= STAGE_END:
+        idx = phase_for_date(d)
         color = PHASES[idx][3] if idx is not None else "#CCCCCC"
-        draw.rectangle([x, bar_y, x + col_w, bar_y + bar_h], fill=color)
+        x1 = x_at(d)
+        x2 = x_at(d, end_of_day=True)
+        draw.rectangle([x1, bar_y, x2, bar_y + bar_h], fill=color)
+        d += timedelta(days=1)
 
     for r, (name, p1, p2, color, dur) in enumerate(PHASES):
-        ks = [k for k, (_n, w1, w2) in enumerate(ws) if phase_for_week(w1, w2) == r]
-        if not ks:
-            continue
-        x1 = left + ks[0] * col_w
-        x2 = left + (ks[-1] + 1) * col_w
-        l1 = name if (ks[-1] - ks[0]) >= 3 else (name.split()[0] if name != "Cahier des charges" else "CDC")
+        x1 = x_at(p1)
+        x2 = x_at(p2, end_of_day=True)
+        span = x2 - x1
+        if name == "Cahier des charges" and span < 220:
+            l1 = "CDC"
+        else:
+            l1 = name
         l2 = f"({dur})"
         bb1 = draw.textbbox((0, 0), l1, font=f_bar)
         bb2 = draw.textbbox((0, 0), l2, font=f_small)
         cx = (x1 + x2) / 2
-        draw.text((cx - (bb1[2] - bb1[0]) / 2, bar_y + 32), l1, fill="#1f1f1f", font=f_bar)
-        draw.text((cx - (bb2[2] - bb2[0]) / 2, bar_y + 64), l2, fill="#1f1f1f", font=f_small)
+        draw.text((cx - (bb1[2] - bb1[0]) / 2, bar_y + 36), l1, fill="#1f1f1f", font=f_bar)
+        draw.text((cx - (bb2[2] - bb2[0]) / 2, bar_y + 70), l2, fill="#1f1f1f", font=f_small)
 
-    for k in range(n_weeks + 1):
-        x = left + k * col_w
+    for _n, w1, _w2 in ws:
+        x = x_at(w1)
         draw.line([(x, header_y), (x, bar_y + bar_h)], fill="#5C6B78", width=1)
+    draw.line([(chart_right, header_y), (chart_right, bar_y + bar_h)], fill="#5C6B78", width=1)
     draw.rectangle([left, header_y, chart_right, bar_y + bar_h], outline="#2F4F6F", width=2)
 
     headers = ["Phase", "Début", "Fin", "Durée"]
-    col_x = [left, left + 520, left + 780, left + 1040]
+    span = chart_right - left
+    col_x = [left, left + span * 0.42, left + span * 0.62, left + span * 0.80]
     draw.rectangle([left, table_y, chart_right, table_y + row_h], fill="#2F4F6F")
     for i, h in enumerate(headers):
         draw.text((col_x[i] + 16, table_y + 12), h, fill="white", font=f_table)
@@ -165,6 +183,15 @@ def draw_png() -> None:
     img.save(out, "PNG", dpi=(300, 300))
     print("Wrote", out, img.size)
 
+    copies = [
+        ROOT / "rapport" / "images" / "gantt.png",
+        ROOT / "soutenance" / "assets" / "gantt.png",
+    ]
+    for dest in copies:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(out, dest)
+        print("Copied", dest)
+
 
 def draw_xlsx() -> None:
     ws_weeks = weeks()
@@ -183,16 +210,22 @@ def draw_xlsx() -> None:
     center = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
     n = len(ws_weeks)
-    last = get_column_letter(1 + n)
+    last = get_column_letter(n)
     ws.merge_cells(f"A1:{last}1")
-    ws["A1"] = "Diagramme de Gantt du projet — Stage du 6 mars au 6 juin 2026"
+    ws["A1"] = "Diagramme de Gantt du projet — Stage du 6 mars au 17 août 2026"
     ws["A1"].font = Font(name="Calibri", bold=True, size=14)
     ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
     ws.row_dimensions[1].height = 24
 
-    month_names = {3: "Mars", 4: "Avril", 5: "Mai", 6: "Juin"}
-    for k, (_n, w1, _w2) in enumerate(ws_weeks, start=1):
-        cell = ws.cell(2, k, month_names[w1.month])
+    for k, (_n, w1, w2) in enumerate(ws_weeks, start=1):
+        # Month of the majority of days in the week.
+        counts: dict[int, int] = {}
+        d = w1
+        while d <= w2:
+            counts[d.month] = counts.get(d.month, 0) + 1
+            d += timedelta(days=1)
+        month = max(counts, key=counts.get)
+        cell = ws.cell(2, k, MONTH_NAMES[month])
         cell.fill = header_fill
         cell.font = header_font
         cell.alignment = center
@@ -202,7 +235,7 @@ def draw_xlsx() -> None:
         wk.font = header_font
         wk.alignment = center
         wk.border = thin
-        ws.column_dimensions[get_column_letter(k)].width = 8
+        ws.column_dimensions[get_column_letter(k)].width = 7
 
     ws.row_dimensions[2].height = 20
     ws.row_dimensions[3].height = 18
@@ -210,14 +243,19 @@ def draw_xlsx() -> None:
     fills = [PatternFill("solid", fgColor=p[3][1:]) for p in PHASES]
 
     for k, (_n, w1, w2) in enumerate(ws_weeks, start=1):
-        idx = phase_for_week(w1, w2)
+        mid = w1 + timedelta(days=min(3, (w2 - w1).days))
+        idx = phase_for_date(mid)
         c = ws.cell(4, k, "")
         c.border = thin
         c.alignment = center
         c.font = Font(name="Calibri", bold=True, size=10)
         if idx is not None:
             c.fill = fills[idx]
-            first = next(i for i, w in enumerate(ws_weeks, start=1) if phase_for_week(w[1], w[2]) == idx)
+            first = next(
+                i
+                for i, w in enumerate(ws_weeks, start=1)
+                if phase_for_date(w[1] + timedelta(days=min(3, (w[2] - w[1]).days))) == idx
+            )
             if k == first:
                 c.value = f"{PHASES[idx][0]} ({PHASES[idx][4]})"
 

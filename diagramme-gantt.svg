@@ -1,42 +1,44 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="170mm" height="95mm" viewBox="0 0 1200 670">
-  <rect width="1200" height="670" fill="#ffffff"/>
-  <text x="600" y="40" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="26" font-weight="bold" fill="#2c2c2c">Diagramme de Gantt du projet</text>
-  <text x="600" y="68" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="14" fill="#666666">Stage du 6 mars au 6 juillet 2026</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="190mm" height="105mm" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#ffffff"/>
+  <text x="640" y="40" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="26" font-weight="bold" fill="#2c2c2c">Diagramme de Gantt du projet</text>
+  <text x="640" y="68" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="14" fill="#666666">Stage du 6 mars au 17 août 2026</text>
 
-  <!-- Chart: x=300..1160 (w=860), y=110..620 -->
-  <line x1="300" y1="108" x2="1160" y2="108" stroke="#5a5a5a" stroke-width="1.5"/>
-  <line x1="300" y1="620" x2="1160" y2="620" stroke="#5a5a5a" stroke-width="1.5"/>
-  <line x1="300" y1="108" x2="300" y2="620" stroke="#5a5a5a" stroke-width="1.5"/>
-  <line x1="1160" y1="108" x2="1160" y2="620" stroke="#5a5a5a" stroke-width="1.5"/>
+  <!-- Chart: x=300..1240 (w=940), y=110..630 ; 165 jours -->
+  <line x1="300" y1="108" x2="1240" y2="108" stroke="#5a5a5a" stroke-width="1.5"/>
+  <line x1="300" y1="630" x2="1240" y2="630" stroke="#5a5a5a" stroke-width="1.5"/>
+  <line x1="300" y1="108" x2="300" y2="630" stroke="#5a5a5a" stroke-width="1.5"/>
+  <line x1="1240" y1="108" x2="1240" y2="630" stroke="#5a5a5a" stroke-width="1.5"/>
 
-  <!-- Month grid: 122 days, x = 300 + 860 * d/122 -->
-  <line x1="483.3" y1="108" x2="483.3" y2="620" stroke="#dcdcdc" stroke-width="1"/>
-  <line x1="694.8" y1="108" x2="694.8" y2="620" stroke="#dcdcdc" stroke-width="1"/>
-  <line x1="913.3" y1="108" x2="913.3" y2="620" stroke="#dcdcdc" stroke-width="1"/>
-  <line x1="1124.8" y1="108" x2="1124.8" y2="620" stroke="#dcdcdc" stroke-width="1"/>
+  <!-- Month grid: x = 300 + 940 * dayIndex/165 -->
+  <line x1="448.1" y1="108" x2="448.1" y2="630" stroke="#dcdcdc" stroke-width="1"/>
+  <line x1="619.0" y1="108" x2="619.0" y2="630" stroke="#dcdcdc" stroke-width="1"/>
+  <line x1="795.5" y1="108" x2="795.5" y2="630" stroke="#dcdcdc" stroke-width="1"/>
+  <line x1="966.4" y1="108" x2="966.4" y2="630" stroke="#dcdcdc" stroke-width="1"/>
+  <line x1="1143.0" y1="108" x2="1143.0" y2="630" stroke="#dcdcdc" stroke-width="1"/>
 
-  <text x="391.6" y="98" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="14" font-weight="bold" fill="#2c2c2c">Mars</text>
-  <text x="589.0" y="98" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="14" font-weight="bold" fill="#2c2c2c">Avril</text>
-  <text x="804.0" y="98" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="14" font-weight="bold" fill="#2c2c2c">Mai</text>
-  <text x="1019.0" y="98" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="14" font-weight="bold" fill="#2c2c2c">Juin</text>
-  <text x="1142.4" y="98" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="13" font-weight="bold" fill="#2c2c2c">Juil.</text>
+  <text x="374.1" y="98" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="14" font-weight="bold" fill="#2c2c2c">Mars</text>
+  <text x="533.6" y="98" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="14" font-weight="bold" fill="#2c2c2c">Avril</text>
+  <text x="707.3" y="98" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="14" font-weight="bold" fill="#2c2c2c">Mai</text>
+  <text x="881.0" y="98" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="14" font-weight="bold" fill="#2c2c2c">Juin</text>
+  <text x="1054.7" y="98" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="14" font-weight="bold" fill="#2c2c2c">Juillet</text>
+  <text x="1191.5" y="98" text-anchor="middle" font-family="Calibri, Arial, sans-serif" font-size="13" font-weight="bold" fill="#2c2c2c">Août</text>
 
-  <text x="16" y="175" font-family="Calibri, Arial, sans-serif" font-size="16" font-weight="bold" fill="#2c2c2c">Cahier des charges</text>
-  <text x="16" y="196" font-family="Calibri, Arial, sans-serif" font-size="12" fill="#777777">6 mars – 19 mars</text>
+  <text x="16" y="180" font-family="Calibri, Arial, sans-serif" font-size="16" font-weight="bold" fill="#2c2c2c">Cahier des charges</text>
+  <text x="16" y="201" font-family="Calibri, Arial, sans-serif" font-size="12" fill="#777777">6 mars – 19 mars</text>
 
-  <text x="16" y="302" font-family="Calibri, Arial, sans-serif" font-size="16" font-weight="bold" fill="#2c2c2c">Conception UML</text>
-  <text x="16" y="323" font-family="Calibri, Arial, sans-serif" font-size="12" fill="#777777">20 mars – 19 avril</text>
+  <text x="16" y="310" font-family="Calibri, Arial, sans-serif" font-size="16" font-weight="bold" fill="#2c2c2c">Conception UML</text>
+  <text x="16" y="331" font-family="Calibri, Arial, sans-serif" font-size="12" fill="#777777">20 mars – 26 avril</text>
 
-  <text x="16" y="429" font-family="Calibri, Arial, sans-serif" font-size="16" font-weight="bold" fill="#2c2c2c">Réalisation</text>
-  <text x="16" y="450" font-family="Calibri, Arial, sans-serif" font-size="12" fill="#777777">20 avril – 14 juin</text>
+  <text x="16" y="440" font-family="Calibri, Arial, sans-serif" font-size="16" font-weight="bold" fill="#2c2c2c">Réalisation</text>
+  <text x="16" y="461" font-family="Calibri, Arial, sans-serif" font-size="12" fill="#777777">27 avril – 26 juillet</text>
 
-  <text x="16" y="556" font-family="Calibri, Arial, sans-serif" font-size="16" font-weight="bold" fill="#2c2c2c">Tests</text>
-  <text x="16" y="577" font-family="Calibri, Arial, sans-serif" font-size="12" fill="#777777">15 juin – 6 juillet</text>
+  <text x="16" y="570" font-family="Calibri, Arial, sans-serif" font-size="16" font-weight="bold" fill="#2c2c2c">Tests</text>
+  <text x="16" y="591" font-family="Calibri, Arial, sans-serif" font-size="12" fill="#777777">27 juillet – 17 août</text>
 
-  <!-- Bars: 14, 31, 56, 21 days -->
-  <rect x="300.0" y="155" width="98.7" height="55" rx="5" fill="#C4A574" stroke="#5a5a5a" stroke-width="0.8"/>
-  <rect x="398.7" y="282" width="218.5" height="55" rx="5" fill="#5B9BD5" stroke="#5a5a5a" stroke-width="0.8"/>
-  <rect x="617.2" y="409" width="394.8" height="55" rx="5" fill="#70AD47" stroke="#5a5a5a" stroke-width="0.8"/>
-  <rect x="1012.0" y="536" width="148.0" height="55" rx="5" fill="#ED7D31" stroke="#5a5a5a" stroke-width="0.8"/>
+  <!-- Bars: 14, 38, 91, 22 days / 165 -->
+  <rect x="300.0" y="158" width="79.8" height="55" rx="5" fill="#C4A574" stroke="#5a5a5a" stroke-width="0.8"/>
+  <rect x="379.8" y="288" width="216.5" height="55" rx="5" fill="#5B9BD5" stroke="#5a5a5a" stroke-width="0.8"/>
+  <rect x="596.2" y="418" width="518.3" height="55" rx="5" fill="#70AD47" stroke="#5a5a5a" stroke-width="0.8"/>
+  <rect x="1114.5" y="548" width="125.3" height="55" rx="5" fill="#ED7D31" stroke="#5a5a5a" stroke-width="0.8"/>
 </svg>

@@ -8,15 +8,15 @@ project starts 2026-03-06
 [Cahier des charges] is colored in Wheat
 
 [Conception UML] starts 2026-03-20
-[Conception UML] ends 2026-04-19
+[Conception UML] ends 2026-04-26
 [Conception UML] is colored in LightBlue
 
-[Réalisation] starts 2026-04-20
-[Réalisation] ends 2026-05-24
+[Réalisation] starts 2026-04-27
+[Réalisation] ends 2026-07-26
 [Réalisation] is colored in LightGreen
 
-[Tests] starts 2026-05-25
-[Tests] ends 2026-06-06
+[Tests] starts 2026-07-27
+[Tests] ends 2026-08-17
 [Tests] is colored in Orange
 
 @endgantt
